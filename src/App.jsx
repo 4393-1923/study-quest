@@ -120,7 +120,7 @@ const ALL_SEATS = [
 ]
 
 // ─── Study Hall ───────────────────────────────────────────────────────────────
-function StudyHall({ isActive, userName, mySeatId, setMySeatId, currentBubble, minutes, secs, timerMode }) {
+function StudyHall({ isActive, userName, mySeatId, setMySeatId, currentBubble, minutes, secs, timerMode, occupiedSeats }) {
   const renderSeat = (seat, index) => {
     const isMe = mySeatId === index;
     const occupiedBy = occupiedSeats[index];
@@ -829,7 +829,17 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <StudyHall isActive={isActive} userName={userName} mySeatId={mySeatId}  currentBubble={currentBubble} minutes={minutes} secs={secs} timerMode={timerMode} setMySeatId={handleSeatClick} />
+            <StudyHall 
+              isActive={isActive} 
+              userName={userName} 
+              mySeatId={mySeatId} 
+              setMySeatId={handleSeatClick} 
+              currentBubble={currentBubble} 
+              minutes={minutes} 
+              secs={secs} 
+              timerMode={timerMode}
+              occupiedSeats={occupiedSeats}
+            />
           </div>
 
           <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14", background: "#FDFAF5" }}>
