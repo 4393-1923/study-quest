@@ -120,7 +120,7 @@ const ALL_SEATS = [
 ]
 
 // ─── Study Hall ───────────────────────────────────────────────────────────────
-function StudyHall({ isActive, userName, mySeatId, setMySeatId, currentBubble, minutes, secs, timerMode, occupiedSeats }) {
+function StudyHall({ isActive,userName,mySeatId,onSeatClick,currentBubble,minutes,secs,timerMode,occupiedSeats}){
   const renderSeat = (seat, index) => {
     const isMe = mySeatId === index;
     const occupiedBy = occupiedSeats[index];
@@ -136,8 +136,8 @@ function StudyHall({ isActive, userName, mySeatId, setMySeatId, currentBubble, m
           key={index} 
           cx={seat.cx} 
           cy={seat.cy} 
-          onClick={() => setMySeatId(index)} 
-          disabled={isActive} 
+          onClick={() => onSeatClick(index)} 
+          disabled={false} 
         />
       );
     }
@@ -428,6 +428,25 @@ export default function App() {
   const [streak] = useState(1)
   const intervalRef = useRef(null)
 
+  //cikis
+  useEffect(() => {
+    if (!userName) return;
+
+    const leaveRoom = async () => {
+      await supabase
+        .from("online_users")
+        .delete()
+        .eq("username", userName);
+    };
+
+    window.addEventListener("pagehide", leaveRoom);
+
+    return () => {
+      window.removeEventListener("beforeunload", leaveRoom);
+      leaveRoom();
+    };
+
+  }, [userName]);
   // Oturum (Magic Link Auth) takibi
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -455,32 +474,50 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    // 1. Mevcut tüm aktif oturanları çek
     const fetchOccupied = async () => {
-      const { data } = await supabase
-        .from('study_sessions')
-        .select('username, seat_id')
-        .is('completedAt', null); // Sadece hala oturanlar
-      
-      if (data) {
+      const { data, error } = await supabase
+        .from("online_users")
+        .select("username, seat_id");
+
+      if (!error && data) {
         const seatsMap = {};
-        data.forEach(s => seatsMap[s.seat_id] = s.username);
+
+        data.forEach((user) => {
+          seatsMap[user.seat_id] = user.username;
+        });
+
         setOccupiedSeats(seatsMap);
+        const mySeat = data.find(
+          (user)=> user.username === userName
+          );
+
+          if(mySeat){
+          setMySeatId(mySeat.seat_id);
+          }
       }
     };
+
     fetchOccupied();
 
-    // 2. Realtime ile anlık dinle
     const channel = supabase
-      .channel('public:study_sessions')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_sessions' }, () => {
-        fetchOccupied();
-      })
+      .channel("online_users_room")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "online_users",
+        },
+        () => {
+          fetchOccupied();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
+
   }, [isLoggedIn]);
   // Supabase'den seansları çekme
   const fetchSessions = async (name) => {
@@ -618,29 +655,64 @@ export default function App() {
   }, [studyDuration, breakDuration, timerMode, timerState])
   // Yeni ekleyeceğimiz koltuk seçme fonksiyonu:
   const handleSeatClick = async (index) => {
-    if (mySeatId !== null) {
-      alert("Zaten bir masadasın!");
+
+    // Çalışıyorsa koltuk değiştirme yok
+    if (timerState === "running") {
+      alert("Çalışma sırasında koltuk değiştiremezsin!");
       return;
     }
 
-    // subject alanını da ekledik:
+
+    // Aynı koltuğa basarsa hiçbir şey yapma
+    if (mySeatId === index) {
+      return;
+    }
+
+
+    // Koltuk dolu mu kontrol
+    const { data: existingSeat } = await supabase
+      .from("online_users")
+      .select("username")
+      .eq("seat_id", index)
+      .maybeSingle();
+
+
+    if (existingSeat) {
+      alert("Bu koltuk dolu!");
+      return;
+    }
+
+
+    // Eski koltuğu sil
+    if (mySeatId !== null) {
+      await supabase
+        .from("online_users")
+        .delete()
+        .eq("username", userName);
+    }
+
+
+    // Yeni koltuğa geç
     const { error } = await supabase
-      .from('study_sessions')
-      .insert([
-        { 
-          username: userName, 
-          seat_id: index, 
-          type: 'study', 
-          duration: 0,
-          subject: 'genel' // <--- BURAYI EKLEDİK
+      .from("online_users")
+      .upsert(
+        {
+          username: userName,
+          seat_id: index,
+          updated_at: new Date().toISOString()
+        },
+        {
+          onConflict: "username"
         }
-      ]);
+      );
+
 
     if (!error) {
       setMySeatId(index);
     } else {
-      alert("Koltuk seçilirken hata oluştu: " + error.message);
+      alert(error.message);
     }
+
   };
 
   const handleStart = () => {
@@ -697,7 +769,25 @@ export default function App() {
 
     setLoading(false);
   };
+  // cikis yapma
+  const handleLogout = async () => {
 
+    // Koltuktan kaldır
+    if (userName) {
+      await supabase
+        .from("online_users")
+        .delete()
+        .eq("username", userName);
+    }
+
+    // Supabase auth çıkışı
+    await supabase.auth.signOut();
+
+    // State temizle
+    setMySeatId(null);
+    setUserName("");
+    setIsLoggedIn(false);
+  };
   // Mesaj gönderme fonksiyonu (Odak modunda kilitli)
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -723,7 +813,7 @@ export default function App() {
 
   const isActive = timerState === "running"
   const modeColor = timerMode === "study" ? "#6B9E78" : "#7EA8C4"
-  const totalOccupancy = mySeatId !== null ? 1 : 0;
+  const totalOccupancy = Object.keys(occupiedSeats).length;
   const occupancyLabel = totalOccupancy > 0 ? "Çalışılıyor" : "Boş Oda"
   const occupancyColor = totalOccupancy > 0 ? "#81C784" : "#64B5F6"
 
@@ -795,6 +885,20 @@ export default function App() {
             <div>
               <h1 style={{ fontFamily: "'Press Start 2P'", fontSize: 13, color: "#3D3028", lineHeight: 1 }}>StudyQuest</h1>
               <p className="text-stone-500 text-xs font-600 mt-1">Hoş geldin, {userName}!</p>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-2 rounded"
+                style={{
+                  fontFamily: "'Press Start 2P'",
+                  fontSize: 8,
+                  background:"#E57373",
+                  color:"#fff",
+                  border:"3px solid #B54A4A",
+                  boxShadow:"3px 3px 0 #7A3030"
+                }}
+              >
+                🚪 ÇIKIŞ
+              </button>
             </div>
           </div>
           <div className="flex-1 max-w-xs hidden md:block">
@@ -846,6 +950,7 @@ export default function App() {
               secs={secs} 
               timerMode={timerMode}
               occupiedSeats={occupiedSeats}
+              onSeatClick={handleSeatClick}
             />
           </div>
 
