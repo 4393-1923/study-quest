@@ -623,10 +623,17 @@ export default function App() {
       return;
     }
 
+    // subject alanını da ekledik:
     const { error } = await supabase
       .from('study_sessions')
       .insert([
-        { username: userName, seat_id: index, type: 'study', duration: 0 }
+        { 
+          username: userName, 
+          seat_id: index, 
+          type: 'study', 
+          duration: 0,
+          subject: 'genel' // <--- BURAYI EKLEDİK
+        }
       ]);
 
     if (!error) {
