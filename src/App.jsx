@@ -400,6 +400,7 @@ function SessionCard({ session, index }) {
 // ─── App ──────────────────────────────────────────────────────
 export default function App() {
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userName, setUserName] = useState("")
@@ -596,24 +597,43 @@ export default function App() {
 
   // Magic Link ile giriş isteği gönderme
   const handleLogin = async (e) => {
-    e.preventDefault()
-    if (!email.trim()) return
-    setLoading(true)
+    e.preventDefault();
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email,
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
-    })
+    if (!email || !password) return;
 
-    if (error) {
-      alert("Hata: " + error.message)
-    } else {
-      alert("Giriş bağlantısı email adresine gönderildi! Lütfen mailini kontrol et.")
+    setLoading(true);
+
+    // Önce giriş dene
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (!error) {
+      setLoading(false);
+      return;
     }
-    setLoading(false)
-  }
+
+    // Kullanıcı bulunamadıysa kayıt oluştur
+    if (error.message.toLowerCase().includes("invalid login credentials")) {
+
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (signUpError) {
+        alert(signUpError.message);
+      } else {
+        alert("Hesabın oluşturuldu! Şimdi giriş yapabilirsin.");
+      }
+
+    } else {
+      alert(error.message);
+    }
+
+    setLoading(false);
+  };
 
   // Mesaj gönderme fonksiyonu (Odak modunda kilitli)
   const handleSendMessage = async (e) => {
@@ -651,7 +671,16 @@ export default function App() {
           <h1 className="text-xl text-center" style={{ fontFamily: 'var(--font-pixel)', color: "#4A3728" }}>
             Odaya Katıl
           </h1>
-          <p className="text-center text-sm font-600" style={{ color: "#7A6A58" }}>Devam etmek için email adresini gir:</p>
+          <p
+            className="text-center text-sm font-600"
+            style={{ color: "#7A6A58" }}
+          >
+            E-posta ve şifreni gir.
+            <br />
+            İlk girişinde hesabın otomatik oluşturulur.
+            <br />
+            Daha sonra aynı bilgilerle giriş yapabilirsin.
+          </p>
           <input 
             type="email" 
             placeholder="ornek@email.com" 
@@ -661,13 +690,22 @@ export default function App() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
+          <input
+            type="password"
+            placeholder="Şifre"
+            className="w-full p-3 bg-[#F5F0E8] outline-none focus:bg-white text-center font-bold"
+            style={{ border: "2px solid #C4B8A8" }}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
           <button 
             type="submit" 
             disabled={loading}
             className="pixel-btn w-full text-white py-3 font-bold" 
             style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.8rem', background: "#6B9E78", borderTop: "3px solid #8BB898", opacity: loading ? 0.6 : 1 }}
           >
-            {loading ? "GÖNDERİLİYOR..." : "SİHİRLİ LİNK GÖNDER"}
+            {loading ? "GİRİŞ YAPILIYOR..." : "GİRİŞ YAP"}
           </button>
         </form>
       </div>
