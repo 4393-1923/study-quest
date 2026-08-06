@@ -1,0 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;500;600;700;800&family=VT323&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --font-pixel: 'Press Start 2P', monospace;
+  --font-body: 'Nunito', sans-serif;
+  --font-timer: 'VT323', monospace;
+}
+
+* {
+  font-family: var(--font-body);
+}
+
+body {
+  background-color: #F2EDE3;
+  color: #3D3028;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #C4956A55;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes xp-fill {
+  from { width: 0%; }
+}
+
+.blink { animation: blink 1s step-start infinite; }
+.float { animation: float 3s ease-in-out infinite; }
+
+.pixel-border {
+  box-shadow:
+    -3px 0 0 0 #4A3728,
+     3px 0 0 0 #4A3728,
+     0 -3px 0 0 #4A3728,
+     0  3px 0 0 #4A3728;
+}
+
+.pixel-border-sm {
+  box-shadow:
+    -2px 0 0 0 #4A3728,
+     2px 0 0 0 #4A3728,
+     0 -2px 0 0 #4A3728,
+     0  2px 0 0 #4A3728;
+}
+
+.pixel-btn {
+  box-shadow:
+    -3px 0 0 0 #2a1f14,
+     3px 0 0 0 #2a1f14,
+     0 -3px 0 0 #2a1f14,
+     0  3px 0 0 #2a1f14,
+     0  6px 0 0 #1a1208;
+  transition: transform 80ms, box-shadow 80ms;
+}
+.pixel-btn:active {
+  transform: translateY(3px);
+  box-shadow:
+    -3px 0 0 0 #2a1f14,
+     3px 0 0 0 #2a1f14,
+     0 -3px 0 0 #2a1f14,
+     0  3px 0 0 #2a1f14,
+     0  3px 0 0 #1a1208;
+}
+
+.scanline::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.04) 2px,
+    rgba(0,0,0,0.04) 4px
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
