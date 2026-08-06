@@ -123,9 +123,13 @@ const ALL_SEATS = [
 function StudyHall({ isActive, userName, mySeatId, setMySeatId, currentBubble, minutes, secs, timerMode }) {
   const renderSeat = (seat, index) => {
     const isMe = mySeatId === index;
+    const occupiedBy = occupiedSeats[index];
 
     if (isMe) {
       return <Student key={index} {...seat} bubble={currentBubble || userName} isMe={true} />;
+    } else if (occupiedBy) {
+      // Başkası oturuyorsa onu göster
+      return <Student key={index} {...seat} bubble={occupiedBy} isMe={false} />;
     } else {
       return (
         <EmptySeat 
@@ -445,6 +449,39 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Aktif sandalyeleri tutan yeni bir state
+  const [occupiedSeats, setOccupiedSeats] = useState({});
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    // 1. Mevcut tüm aktif oturanları çek
+    const fetchOccupied = async () => {
+      const { data } = await supabase
+        .from('study_sessions')
+        .select('username, seat_id')
+        .is('completedAt', null); // Sadece hala oturanlar
+      
+      if (data) {
+        const seatsMap = {};
+        data.forEach(s => seatsMap[s.seat_id] = s.username);
+        setOccupiedSeats(seatsMap);
+      }
+    };
+    fetchOccupied();
+
+    // 2. Realtime ile anlık dinle
+    const channel = supabase
+      .channel('public:study_sessions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_sessions' }, () => {
+        fetchOccupied();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isLoggedIn]);
   // Supabase'den seansları çekme
   const fetchSessions = async (name) => {
     if (!name) return;
@@ -579,6 +616,25 @@ export default function App() {
     if (timerState === "idle")
       setSecondsLeft((timerMode === "study" ? studyDuration : breakDuration) * 60)
   }, [studyDuration, breakDuration, timerMode, timerState])
+  // Yeni ekleyeceğimiz koltuk seçme fonksiyonu:
+  const handleSeatClick = async (index) => {
+    if (mySeatId !== null) {
+      alert("Zaten bir masadasın!");
+      return;
+    }
+
+    const { error } = await supabase
+      .from('study_sessions')
+      .insert([
+        { username: userName, seat_id: index, type: 'study', duration: 0 }
+      ]);
+
+    if (!error) {
+      setMySeatId(index);
+    } else {
+      alert("Koltuk seçilirken hata oluştu: " + error.message);
+    }
+  };
 
   const handleStart = () => {
     if (mySeatId === null) {
@@ -773,7 +829,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <StudyHall isActive={isActive} userName={userName} mySeatId={mySeatId} setMySeatId={setMySeatId} currentBubble={currentBubble} minutes={minutes} secs={secs} timerMode={timerMode} />
+            <StudyHall isActive={isActive} userName={userName} mySeatId={mySeatId}  currentBubble={currentBubble} minutes={minutes} secs={secs} timerMode={timerMode} setMySeatId={handleSeatClick} />
           </div>
 
           <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14", background: "#FDFAF5" }}>
