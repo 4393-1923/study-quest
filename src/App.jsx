@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { supabase } from "./supabase"
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import confetti from "canvas-confetti";
 
 // ─── Boş Sandalye Bileşeni ────────────────────────────────────────────────────
 function EmptySeat({ cx, cy, onClick, disabled }) {
@@ -30,40 +31,19 @@ function Student({
   shirt,
   item,
   bookColor = "#E57373",
-  bubble,
+  username,
+  timerText,
   isMe,
-  username
+  showBubble
 }) {
 
   const ts = cy - 18
-  const [showName, setShowName] = useState(false)
 
   return (
     <g
       className={isMe ? "animate-sit" : ""}
       style={{ transformOrigin: `${cx}px ${cy}px` }}
-      onMouseEnter={() => setShowName(true)}
-      onMouseLeave={() => setShowName(false)}
     >
-
-      {true && (
-        <text
-          x={cx}
-          y={ts - 32}
-          textAnchor="middle"
-          fontSize="7"
-          fill="#4A3728"
-          style={{
-            fontFamily: "'Press Start 2P'",
-            pointerEvents: "none",
-            userSelect: "none"
-          }}
-        >
-          {username}
-        </text>
-      )}
-
-
       {item === "laptop" && (
         <>
           <rect x={cx - 10} y={ts} width={20} height={2} fill="#2A2A2A" />
@@ -73,7 +53,6 @@ function Student({
         </>
       )}
 
-
       {item === "book" && (
         <>
           <rect x={cx - 9} y={ts - 1} width={18} height={11} fill={bookColor} />
@@ -81,7 +60,6 @@ function Student({
           <rect x={cx - 5} y={ts + 1} width={10} height={1} fill="#ffffff28" />
         </>
       )}
-
 
       {item === "write" && (
         <>
@@ -91,7 +69,6 @@ function Student({
         </>
       )}
 
-
       {item === "phone" && (
         <>
           <rect x={cx - 4} y={ts - 2} width={8} height={11} fill="#1A2822" />
@@ -99,61 +76,36 @@ function Student({
         </>
       )}
 
-
-
-      {/* kollar */}
+      {/* Kollar */}
       <rect x={cx - 12} y={ts - 5} width={7} height={4} fill={skin} rx="1" />
       <rect x={cx + 5} y={ts - 5} width={7} height={4} fill={skin} rx="1" />
 
+      {/* Gövde */}
+      <rect x={cx - 7} y={ts - 16} width={14} height={11} fill={shirt} />
 
-      {/* gövde */}
-      <rect 
-        x={cx - 7} 
-        y={ts - 16} 
-        width={14} 
-        height={11} 
-        fill={shirt} 
-      />
+      {/* Kafa */}
+      <rect x={cx - 5} y={ts - 27} width={10} height={11} fill={skin} />
 
+      {/* Saç */}
+      <rect x={cx - 5} y={ts - 27} width={10} height={5} fill={hair} />
 
-      {/* kafa */}
-      <rect 
-        x={cx - 5} 
-        y={ts - 27} 
-        width={10} 
-        height={11} 
-        fill={skin} 
-      />
-
-
-      {/* saç */}
-      <rect 
-        x={cx - 5} 
-        y={ts - 27} 
-        width={10} 
-        height={5} 
-        fill={hair} 
-      />
-
-
-      {/* gözler */}
+      {/* Gözler */}
       <rect x={cx - 3} y={ts - 21} width={2} height={2} fill="#333" />
       <rect x={cx + 1} y={ts - 21} width={2} height={2} fill="#333" />
 
-
-      {/* mesaj balonu */}
-      {bubble && (
+      {/* İKİ SATIRLI BİLGİ BALONU */}
+      {showBubble && (
         <g className={isMe ? "float" : ""}>
           <rect
-            x={cx - (bubble.length * 3.5) - 4}
-            y={ts - 45}
-            width={bubble.length * 7 + 8}
-            height={16}
+            x={cx - 28}
+            y={ts - 52}
+            width={56}
+            height={22}
             fill="#FFFFFF"
             rx="2"
             style={{
-              stroke:"#333",
-              strokeWidth:1
+              stroke: "#333",
+              strokeWidth: 1
             }}
           />
 
@@ -161,28 +113,43 @@ function Student({
             points={`${cx-3},${ts-30} ${cx+3},${ts-30} ${cx},${ts-27}`}
             fill="#FFFFFF"
             style={{
-              stroke:"#333",
-              strokeWidth:1
+              stroke: "#333",
+              strokeWidth: 1
             }}
           />
 
+          {/* 1. Satır: Username */}
+          <text
+            x={cx}
+            y={ts - 43}
+            textAnchor="middle"
+            fontSize="6"
+            fill="#333"
+            style={{
+              fontFamily: "'Press Start 2P'",
+              userSelect: "none",
+              fontWeight: "bold"
+            }}
+          >
+            {username}
+          </text>
+
+          {/* 2. Satır: Timer */}
           <text
             x={cx}
             y={ts - 34}
             textAnchor="middle"
-            fontSize="7"
-            fill="#333"
+            fontSize="6"
+            fill="#666"
             style={{
-              fontFamily:"'Press Start 2P'",
-              userSelect:"none"
+              fontFamily: "'Press Start 2P'",
+              userSelect: "none"
             }}
           >
-            {bubble}
+            {timerText}
           </text>
-
         </g>
       )}
-
     </g>
   )
 }
@@ -217,41 +184,41 @@ const ALL_SEATS = [
 ]
 
 // ─── Study Hall ───────────────────────────────────────────────────────────────
-function StudyHall({ isActive,userName,mySeatId,onSeatClick,currentBubble,minutes,secs,timerMode,occupiedSeats,timerState}){
+function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, timerMode, occupiedSeats, timerState }) {
   const renderSeat = (seat, index) => {
     const isMe = mySeatId === index;
     const occupiedBy = occupiedSeats[index];
 
     if (isMe) {
+      const myTimeStr = `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+      const showMyBubble = timerState === "running";
+
       return (
         <Student
           key={index}
           {...seat}
           username={userName}
-          bubble={
-            timerState === "running"
-              ? `${minutes}:${String(secs).padStart(2, "0")}`
-              : userName
-          }
+          timerText={myTimeStr}
           isMe={true}
+          showBubble={showMyBubble}
         />
       );
-
     } else if (occupiedBy) {
+      const otherMins = Math.floor(occupiedBy.timer_seconds / 60);
+      const otherSecs = occupiedBy.timer_seconds % 60;
+      const otherTimeStr = `${String(otherMins).padStart(2, "0")}:${String(otherSecs).padStart(2, "0")}`;
+      const showOtherBubble = occupiedBy.timer_running;
+
       return (
         <Student
           key={index}
           {...seat}
-          username={userName}
-          bubble={
-            occupiedBy.timer_running
-              ? `${Math.floor(occupiedBy.timer_seconds / 60)}:${String(occupiedBy.timer_seconds % 60).padStart(2, "0")}`
-              : occupiedBy.username
-          }
+          username={occupiedBy.username}
+          timerText={otherTimeStr}
           isMe={false}
+          showBubble={showOtherBubble}
         />
       );
-
     } else {
       return (
         <EmptySeat
@@ -266,8 +233,8 @@ function StudyHall({ isActive,userName,mySeatId,onSeatClick,currentBubble,minute
   };
 
   return (
-    <div className="relative w-full overflow-hidden select-none" style={{ imageRendering: "pixelated", aspectRatio: "16/9", maxHeight: 340 }}>
-      <svg viewBox="0 0 600 338" width="100%" height="100%" style={{ imageRendering: "pixelated", display: "block" }} xmlns="http://www.w3.org/2000/svg">
+    <div className="relative w-full overflow-hidden select-none" style={{ imageRendering: "pixelated" }}>
+      <svg viewBox="0 0 600 338" width="100%" height="100%" preserveAspectRatio="none" style={{ imageRendering: "pixelated", display: "block" }} xmlns="http://www.w3.org/2000/svg">
         <rect width="600" height="338" fill="#EDE5D5" />
         {Array.from({ length: 36 }).map((_, i) => (
           <rect key={i} x={0} y={i * 9} width="600" height="1" fill="#E3D8C8" opacity="0.55" />
@@ -480,26 +447,6 @@ function StudyHall({ isActive,userName,mySeatId,onSeatClick,currentBubble,minute
   )
 }
 
-// ─── XP Bar ───────────────────────────────────────────────────────────────────
-function XPBar({ xp, level }) {
-  const maxXp = level * 100
-  const pct = Math.min(100, ((xp % maxXp) / maxXp) * 100)
-  return (
-    <div className="flex items-center gap-3">
-      <div style={{ fontFamily: "'Press Start 2P'", fontSize: 9, color: "#92400E", whiteSpace: "nowrap" }}>
-        LV.{level}
-      </div>
-      <div className="flex-1 h-3 relative overflow-hidden" style={{ background: "#FEF3C7", border: "2px solid #92400E", imageRendering: "pixelated" }}>
-        <div className="h-full transition-all duration-700" style={{ width: `${pct}%`, background: "linear-gradient(90deg, #FBBF24, #FDE68A)" }} />
-        <div className="absolute inset-0" style={{ background: "repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.05) 3px, rgba(0,0,0,0.05) 4px)" }} />
-      </div>
-      <div className="text-xs font-600 text-amber-700 whitespace-nowrap" style={{ fontSize: 10 }}>
-        {xp % maxXp}/{maxXp} XP
-      </div>
-    </div>
-  )
-}
-
 // ─── Session Card ─────────────────────────────────────────────────────────────
 function SessionCard({ session, index }) {
   const palette = [
@@ -543,14 +490,10 @@ export default function App() {
   // Sohbet ve Mesajlaşma State'leri
   const [messages, setMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
-  const [currentBubble, setCurrentBubble] = useState("")
 
-  const [xp, setXp] = useState(100)
-  const [level] = useState(1)
   const [streak] = useState(1)
-  const intervalRef = useRef(null)
 
-  //cikis
+  // Sayfadan çıkışta kullanıcıyı online tablosundan temizleme
   useEffect(() => {
     if (!userName) return;
 
@@ -567,9 +510,9 @@ export default function App() {
       window.removeEventListener("beforeunload", leaveRoom);
       leaveRoom();
     };
-
   }, [userName]);
-  // Oturum (Magic Link Auth) takibi
+
+  // Oturum (Auth) takibi
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
@@ -590,44 +533,49 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Aktif sandalyeleri tutan yeni bir state
+  // Aktif sandalyeleri ve diğer kullanıcıların timer durumlarını tutan state
   const [occupiedSeats, setOccupiedSeats] = useState({});
+
+  // Yerel Timer Geri Sayım Efekti
   useEffect(() => {
+    let timer = null;
+    if (timerState === "running") {
+      timer = setInterval(() => {
+        setSecondsLeft((prev) => {
+          if (prev <= 1) {
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [timerState]);
 
+  // Diğer Kullanıcıların Zaman Akışını Simüle Eden Efekt
+  useEffect(() => {
     const timer = setInterval(() => {
-
       setOccupiedSeats(prev => {
-
         const updated = {...prev};
-
         Object.keys(updated).forEach((seatId) => {
-
           const user = updated[seatId];
-
-          if(user.timer_running && user.timer_seconds > 0){
-
+          if (user.timer_running && user.timer_seconds > 0) {
             updated[seatId] = {
               ...user,
               timer_seconds: user.timer_seconds - 1
             };
-
           }
-
         });
-
         return updated;
-
       });
-
-    },1000);
-
+    }, 1000);
 
     return () => clearInterval(timer);
+  }, []);
 
-  },[]);
-
+  // Supabase Realtime ile online kullanıcıları dinleme ve sayfa yenilendiğinde timer'ı koruma
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || !userName) return;
 
     const fetchOccupied = async () => {
       const { data, error } = await supabase
@@ -638,23 +586,29 @@ export default function App() {
           timer_seconds,
           timer_running,
           timer_mode
-          `)
+        `);
 
       if (!error && data) {
         const seatsMap = {};
-
         data.forEach((user) => {
           seatsMap[user.seat_id] = user;
         });
-
         setOccupiedSeats(seatsMap);
-        const mySeat = data.find(
-          (user)=> user.username === userName
-          );
 
-          if(mySeat){
+        const mySeat = data.find((user) => user.username === userName);
+        if (mySeat) {
           setMySeatId(mySeat.seat_id);
+          
+          if (mySeat.timer_seconds !== undefined && mySeat.timer_seconds !== null) {
+            setSecondsLeft(mySeat.timer_seconds);
           }
+          if (mySeat.timer_mode) {
+            setTimerMode(mySeat.timer_mode);
+          }
+          if (mySeat.timer_running) {
+            setTimerState("running");
+          }
+        }
       }
     };
 
@@ -678,8 +632,27 @@ export default function App() {
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [isLoggedIn, userName]);
 
-  }, [isLoggedIn]);
+  // Kendi timer durumumuz değiştiğinde Supabase'e anlık update atma
+  useEffect(() => {
+    if (!userName || mySeatId === null) return;
+
+    const updateMyTimer = async () => {
+      await supabase
+        .from("online_users")
+        .update({
+          timer_seconds: secondsLeft,
+          timer_running: timerState === "running",
+          timer_mode: timerMode,
+          updated_at: new Date().toISOString()
+        })
+        .eq("username", userName);
+    };
+
+    updateMyTimer();
+  }, [secondsLeft, timerState, timerMode, userName, mySeatId]);
+
   // Supabase'den seansları çekme
   const fetchSessions = async (name) => {
     if (!name) return;
@@ -691,10 +664,6 @@ export default function App() {
 
     if (!error && data) {
       setSessions(data);
-      const totalMinutes = data
-        .filter(s => s.type === 'study')
-        .reduce((acc, s) => acc + s.duration, 0);
-      setXp(100 + totalMinutes * 2);
     }
   };
 
@@ -720,18 +689,16 @@ export default function App() {
     }
   }, [isLoggedIn, userName]);
 
-  // Sadece 'study' olan seansları filtrele (Break'ler istatistiğe dahil edilmez)
   const studySessions = sessions.filter(s => s.type === 'study');
 
   const totalMinToday = studySessions
     .filter((s) => new Date(s.created_at || s.completedAt) > new Date(Date.now() - 86400000))
     .reduce((acc, s) => acc + s.duration, 0);
 
-  // Haftalık Grafik Verisi (Pzt - Paz)
+  // Haftalık Grafik Verisi
   const chartData = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((day, i) => {
     const daySessions = studySessions.filter(s => {
       const d = new Date(s.created_at || s.completedAt);
-      // getDay(): Pazar=0, Pzt=1 ... Pazartesi tabanlı indeksleme
       const dayIndex = d.getDay() === 0 ? 6 : d.getDay() - 1;
       return dayIndex === i;
     });
@@ -747,12 +714,17 @@ export default function App() {
   const secs = secondsLeft % 60;
 
   const handleComplete = useCallback(async () => {
-    // Timer zaten durduruldu, çift tetiklenmeyi engellemek için kontrol
     if (timerState !== "running") return;
 
     const isStudyMode = timerMode === "study";
 
     if (isStudyMode) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
       const dur = studyDuration;
       const sub = subject.trim() || "Focus session";
       
@@ -773,7 +745,6 @@ export default function App() {
         setSessions((prev) => [data[0], ...prev]);
       }
 
-      setXp((prev) => prev + dur * 2);
       setTimerMode("break");
       setSecondsLeft(breakDuration * 60);
     } else {
@@ -782,26 +753,8 @@ export default function App() {
     }
     setTimerState("idle");
   }, [timerMode, studyDuration, breakDuration, subject, userName, timerState]);
-  
-  useEffect(() => {
-    if (!userName || mySeatId === null) return;
 
-    const updateMyTimer = async () => {
-      await supabase
-        .from("online_users")
-        .update({
-          timer_seconds: secondsLeft,
-          timer_running: timerState === "running",
-          timer_mode: timerMode
-        })
-        .eq("username", userName);
-    };
-
-    updateMyTimer();
-
-  }, [secondsLeft, timerState, timerMode]);
-
-  // Süre 0 olduğunda tetiklenecek ayrı bir kontrol
+  // Süre 0 olduğunda tamamlama fonksiyonunu tetikle
   useEffect(() => {
     if (secondsLeft === 0 && timerState === "running") {
       handleComplete();
@@ -811,38 +764,30 @@ export default function App() {
   useEffect(() => {
     if (timerState === "idle")
       setSecondsLeft((timerMode === "study" ? studyDuration : breakDuration) * 60)
-  }, [studyDuration, breakDuration, timerMode, timerState])
-  // Yeni ekleyeceğimiz koltuk seçme fonksiyonu:
-  const handleSeatClick = async (index) => {
+  }, [studyDuration, breakDuration, timerMode, timerState]);
 
-    // Çalışıyorsa koltuk değiştirme yok
+  // Koltuk seçme fonksiyonu
+  const handleSeatClick = async (index) => {
     if (timerState === "running") {
       alert("Çalışma sırasında koltuk değiştiremezsin!");
       return;
     }
 
-
-    // Aynı koltuğa basarsa hiçbir şey yapma
     if (mySeatId === index) {
       return;
     }
 
-
-    // Koltuk dolu mu kontrol
     const { data: existingSeat } = await supabase
       .from("online_users")
       .select("username")
       .eq("seat_id", index)
       .maybeSingle();
 
-
     if (existingSeat) {
       alert("Bu koltuk dolu!");
       return;
     }
 
-
-    // Eski koltuğu sil
     if (mySeatId !== null) {
       await supabase
         .from("online_users")
@@ -850,14 +795,15 @@ export default function App() {
         .eq("username", userName);
     }
 
-
-    // Yeni koltuğa geç
     const { error } = await supabase
       .from("online_users")
       .upsert(
         {
           username: userName,
           seat_id: index,
+          timer_seconds: secondsLeft,
+          timer_running: timerState === "running",
+          timer_mode: timerMode,
           updated_at: new Date().toISOString()
         },
         {
@@ -865,13 +811,11 @@ export default function App() {
         }
       );
 
-
     if (!error) {
       setMySeatId(index);
     } else {
       alert(error.message);
     }
-
   };
 
   const handleStart = () => {
@@ -889,15 +833,11 @@ export default function App() {
     setSecondsLeft(studyDuration * 60)
   }
 
-  // Magic Link ile giriş isteği gönderme
   const handleLogin = async (e) => {
     e.preventDefault();
-
     if (!email || !password) return;
-
     setLoading(true);
 
-    // Önce giriş dene
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -908,9 +848,7 @@ export default function App() {
       return;
     }
 
-    // Kullanıcı bulunamadıysa kayıt oluştur
     if (error.message.toLowerCase().includes("invalid login credentials")) {
-
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -921,17 +859,13 @@ export default function App() {
       } else {
         alert("Hesabın oluşturuldu! Şimdi giriş yapabilirsin.");
       }
-
     } else {
       alert(error.message);
     }
-
     setLoading(false);
   };
-  // cikis yapma
-  const handleLogout = async () => {
 
-    // Koltuktan kaldır
+  const handleLogout = async () => {
     if (userName) {
       await supabase
         .from("online_users")
@@ -939,15 +873,12 @@ export default function App() {
         .eq("username", userName);
     }
 
-    // Supabase auth çıkışı
     await supabase.auth.signOut();
-
-    // State temizle
     setMySeatId(null);
     setUserName("");
     setIsLoggedIn(false);
   };
-  // Mesaj gönderme fonksiyonu (Odak modunda kilitli)
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (isActive) {
@@ -965,8 +896,6 @@ export default function App() {
     if (!error) {
       setChatInput("");
       fetchMessages();
-      setCurrentBubble(msgText);
-      setTimeout(() => setCurrentBubble(""), 5000);
     }
   };
 
@@ -983,10 +912,7 @@ export default function App() {
           <h1 className="text-xl text-center" style={{ fontFamily: 'var(--font-pixel)', color: "#4A3728" }}>
             Odaya Katıl
           </h1>
-          <p
-            className="text-center text-sm font-600"
-            style={{ color: "#7A6A58" }}
-          >
+          <p className="text-center text-sm font-600" style={{ color: "#7A6A58" }}>
             E-posta ve şifreni gir.
             <br />
             İlk girişinde hesabın otomatik oluşturulur.
@@ -1046,9 +972,17 @@ export default function App() {
               <p className="text-stone-500 text-xs font-600 mt-1">Hoş geldin, {userName}!</p>
             </div>
           </div>
-          <div className="flex-1 max-w-xs hidden md:block">
-            <XPBar xp={xp} level={level} />
+          
+          {/* ATATÜRK'ÜN SÖZÜ (XP YERİNE EKLENDİ) */}
+          <div className="flex-1 max-w-lg hidden lg:block text-center px-4">
+            <p className="text-xs font-700 text-stone-700 italic">
+              “Umutsuz durumlar yoktur, umutsuz insanlar vardır. Ben hiçbir zaman umudumu yitirmedim.”
+            </p>
+            <p className="text-[10px] font-800 text-amber-800 mt-0.5">
+              Gazi Mustafa Kemal Atatürk
+            </p>
           </div>
+
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg border-2" style={{ background: "#F0FBF4", borderColor: occupancyColor }}>
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: occupancyColor, boxShadow: `0 0 5px ${occupancyColor}` }} />
@@ -1089,8 +1023,6 @@ export default function App() {
               isActive={isActive} 
               userName={userName} 
               mySeatId={mySeatId} 
-              setMySeatId={handleSeatClick} 
-              currentBubble={currentBubble} 
               minutes={minutes} 
               secs={secs} 
               timerMode={timerMode}
@@ -1295,27 +1227,27 @@ export default function App() {
         }
         @keyframes sitDown {
           0% { transform: translateY(-20px) scale(1.1); opacity: 0; }
-          60% { transform: translateY(2px) scale(0.95); opacity: 1; }
+          60% { transform: translateY(2.5px) scale(0.95); opacity: 1; }
           100% { transform: translateY(0) scale(1); opacity: 1; }
         }
         .animate-sit {
           animation: sitDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
       `}</style>
-    <button
-      onClick={handleLogout}
-      className="fixed bottom-5 right-5 px-4 py-3 rounded"
-      style={{
-      fontFamily:"'Press Start 2P'",
-      fontSize:8,
-      background:"#E57373",
-      color:"#fff",
-      border:"3px solid #B54A4A",
-      boxShadow:"4px 4px 0 #7A3030",
-      zIndex:50
-      }}
+      <button
+        onClick={handleLogout}
+        className="fixed bottom-5 right-5 px-4 py-3 rounded"
+        style={{
+          fontFamily: "'Press Start 2P'",
+          fontSize: 8,
+          background: "#E57373",
+          color: "#fff",
+          border: "3px solid #B54A4A",
+          boxShadow: "4px 4px 0 #7A3030",
+          zIndex: 50
+        }}
       >
-      ÇIKIŞ
+        ÇIKIŞ
       </button>
     </div>
   )
