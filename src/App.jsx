@@ -185,6 +185,14 @@ const ALL_SEATS = [
 
 // ─── Study Hall ───────────────────────────────────────────────────────────────
 function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, timerMode, occupiedSeats, timerState }) {
+  const [tick, setTick] = useState(0);
+
+  // Diğer kullanıcıların sayaçlarının akıcı görünmesi için her saniye tetikleyici
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const now = Date.now();
 
   const renderSeat = (seat, index) => {
@@ -206,7 +214,6 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
         />
       );
     } else if (occupiedBy) {
-      // Hedef zaman ile o anki zaman arasındaki farkı hesaplayarak mutlak kararlı saniye bulma
       let remainingSecs = 0;
       if (occupiedBy.timer_running && occupiedBy.target_end_time) {
         remainingSecs = Math.max(0, Math.floor((new Date(occupiedBy.target_end_time).getTime() - now) / 1000));
@@ -480,7 +487,7 @@ function SessionCard({ session, index }) {
   )
 }
 
-// ─── App ────────────────────────────────______________________
+// ─── App ──────────────────────────────────────────────────────
 export default function App() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -547,7 +554,7 @@ export default function App() {
   // Aktif sandalyeleri tutan state
   const [occupiedSeats, setOccupiedSeats] = useState({});
 
-  // 1. Hedef bitiş zamanına göre mutlak zaman hesabı yapan kararlı timer (Zıplama asla olmaz)
+  // 1. Hedef bitiş zamanına göre mutlak zaman hesabı (Zıplama önlendi)
   useEffect(() => {
     let timer = null;
     if (timerState === "running" && targetEndTime) {
@@ -564,7 +571,7 @@ export default function App() {
     return () => clearInterval(timer);
   }, [timerState, targetEndTime]);
 
-  // Supabase Realtime ile online kullanıcıları dinleme
+  // Supabase Realtime ile online kullanıcıları dinleme (Kendi saniyemizi ezmeyecek şekilde korumalı)
   useEffect(() => {
     if (!isLoggedIn || !userName) return;
 
@@ -583,25 +590,41 @@ export default function App() {
       if (!error && data) {
         const seatsMap = {};
         data.forEach((user) => {
-          seatsMap[user.seat_id] = user;
+          // Kendi satırımız dışındaki kullanıcıların verilerini al
+          if (user.username !== userName) {
+            seatsMap[user.seat_id] = user;
+          }
         });
-        setOccupiedSeats(seatsMap);
 
-        const mySeat = data.find((user) => user.username === userName);
-        if (mySeat && mySeatId === null) {
-          setMySeatId(mySeat.seat_id);
-          if (mySeat.target_end_time && mySeat.timer_running) {
-            const endMs = new Date(mySeat.target_end_time).getTime();
-            if (endMs > Date.now()) {
-              setTargetEndTime(endMs);
-              setSecondsLeft(Math.max(0, Math.floor((endMs - Date.now()) / 1000)));
-              setTimerState("running");
+        // Kendi koltuğumuz varsa, veritabanından gelen eski saniyeyle kendi sayacımızın ezilmesini engelle
+        const myCurrentSeat = data.find((user) => user.username === userName);
+        if (myCurrentSeat) {
+          if (mySeatId === null) {
+            setMySeatId(myCurrentSeat.seat_id);
+            if (myCurrentSeat.target_end_time && myCurrentSeat.timer_running) {
+              const endMs = new Date(myCurrentSeat.target_end_time).getTime();
+              if (endMs > Date.now()) {
+                setTargetEndTime(endMs);
+                setSecondsLeft(Math.max(0, Math.floor((endMs - Date.now()) / 1000)));
+                setTimerState("running");
+              }
+            }
+            if (myCurrentSeat.timer_mode) {
+              setTimerMode(myCurrentSeat.timer_mode);
             }
           }
-          if (mySeat.timer_mode) {
-            setTimerMode(mySeat.timer_mode);
+          // Kendi koltuğumuzu yerel değerlerle haritaya koy
+          if (mySeatId !== null) {
+            seatsMap[mySeatId] = {
+              username: userName,
+              timer_running: timerState === "running",
+              timer_seconds: secondsLeft,
+              target_end_time: targetEndTime ? new Date(targetEndTime).toISOString() : null
+            };
           }
         }
+
+        setOccupiedSeats(seatsMap);
       }
     };
 
@@ -625,7 +648,7 @@ export default function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isLoggedIn, userName]);
+  }, [isLoggedIn, userName, mySeatId, timerState, secondsLeft, targetEndTime, timerMode]);
 
   // Kendi durumumuzu ve hedef bitiş zamanımızı Supabase'e bildir
   useEffect(() => {
@@ -707,7 +730,7 @@ export default function App() {
   const minutes = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
 
-  // Seans tamamlama kilidi (Mükerrer kayıt ve 30 kez konfeti patlamasını kesin engeller)
+  // Seans tamamlama kilidi
   const isCompletingRef = useRef(false);
 
   const handleComplete = useCallback(async () => {
