@@ -536,7 +536,7 @@ export default function App() {
   // Aktif sandalyeleri ve diğer kullanıcıların timer durumlarını tutan state
   const [occupiedSeats, setOccupiedSeats] = useState({});
 
-  // Yerel Timer Geri Sayım Efekti
+  // 1. Kendi yerel saniyemizi kararlı şekilde düşüren interval (Zıplama önlendi)
   useEffect(() => {
     let timer = null;
     if (timerState === "running") {
@@ -552,14 +552,14 @@ export default function App() {
     return () => clearInterval(timer);
   }, [timerState]);
 
-  // Diğer Kullanıcıların Zaman Akışını Simüle Eden Efekt
+  // 2. Diğer kullanıcıların saniyelerini kendi aralarında akıtan simülasyon
   useEffect(() => {
     const timer = setInterval(() => {
       setOccupiedSeats(prev => {
         const updated = {...prev};
         Object.keys(updated).forEach((seatId) => {
           const user = updated[seatId];
-          if (user.timer_running && user.timer_seconds > 0) {
+          if (user.username !== userName && user.timer_running && user.timer_seconds > 0) {
             updated[seatId] = {
               ...user,
               timer_seconds: user.timer_seconds - 1
@@ -571,9 +571,9 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [userName]);
 
-  // Supabase Realtime ile online kullanıcıları dinleme ve sayfa yenilendiğinde timer'ı koruma
+  // Supabase Realtime ile online kullanıcıları dinleme
   useEffect(() => {
     if (!isLoggedIn || !userName) return;
 
@@ -593,12 +593,24 @@ export default function App() {
         data.forEach((user) => {
           seatsMap[user.seat_id] = user;
         });
-        setOccupiedSeats(seatsMap);
+        
+        setOccupiedSeats(prev => {
+          const merged = { ...seatsMap };
+          const myCurrentSeatId = mySeatId;
+          if (myCurrentSeatId !== null && prev[myCurrentSeatId]) {
+            merged[myCurrentSeatId] = {
+              ...merged[myCurrentSeatId],
+              timer_seconds: secondsLeft,
+              timer_running: timerState === "running",
+              timer_mode: timerMode
+            };
+          }
+          return merged;
+        });
 
         const mySeat = data.find((user) => user.username === userName);
-        if (mySeat) {
+        if (mySeat && mySeatId === null) {
           setMySeatId(mySeat.seat_id);
-          
           if (mySeat.timer_seconds !== undefined && mySeat.timer_seconds !== null) {
             setSecondsLeft(mySeat.timer_seconds);
           }
@@ -634,7 +646,7 @@ export default function App() {
     };
   }, [isLoggedIn, userName]);
 
-  // Kendi timer durumumuz değiştiğinde Supabase'e anlık update atma
+  // Kendi durumumuzu arka planda Supabase'e bildir
   useEffect(() => {
     if (!userName || mySeatId === null) return;
 
@@ -693,7 +705,7 @@ export default function App() {
 
   const totalMinToday = studySessions
     .filter((s) => new Date(s.created_at || s.completedAt) > new Date(Date.now() - 86400000))
-    .reduce((acc, s) => acc + s.duration, 0);
+    .reduce((acc, s) => acc + (Number(s.duration) || 0), 0);
 
   // Haftalık Grafik Verisi
   const chartData = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((day, i) => {
@@ -704,7 +716,7 @@ export default function App() {
     });
     return {
       day,
-      minutes: daySessions.reduce((acc, s) => acc + s.duration, 0)
+      minutes: daySessions.reduce((acc, s) => acc + (Number(s.duration) || 0), 0)
     };
   });
 
@@ -713,8 +725,12 @@ export default function App() {
   const minutes = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
 
+  // Seans tamamlama kilidi (Mükerrer kayıt ve 30 kez konfeti patlamasını engeller)
+  const isCompletingRef = useRef(false);
+
   const handleComplete = useCallback(async () => {
-    if (timerState !== "running") return;
+    if (timerState !== "running" || isCompletingRef.current) return;
+    isCompletingRef.current = true;
 
     const isStudyMode = timerMode === "study";
 
@@ -731,7 +747,7 @@ export default function App() {
       const newSession = {
         username: userName,
         subject: sub,
-        duration: dur,
+        duration: Number(dur),
         type: "study",
         created_at: new Date().toISOString()
       };
@@ -752,11 +768,15 @@ export default function App() {
       setSecondsLeft(studyDuration * 60);
     }
     setTimerState("idle");
+
+    setTimeout(() => {
+      isCompletingRef.current = false;
+    }, 1500);
   }, [timerMode, studyDuration, breakDuration, subject, userName, timerState]);
 
   // Süre 0 olduğunda tamamlama fonksiyonunu tetikle
   useEffect(() => {
-    if (secondsLeft === 0 && timerState === "running") {
+    if (secondsLeft <= 0 && timerState === "running" && !isCompletingRef.current) {
       handleComplete();
     }
   }, [secondsLeft, timerState, handleComplete]);
@@ -973,7 +993,6 @@ export default function App() {
             </div>
           </div>
           
-          {/* ATATÜRK'ÜN SÖZÜ (XP YERİNE EKLENDİ) */}
           <div className="flex-1 max-w-lg hidden lg:block text-center px-4">
             <p className="text-xs font-700 text-stone-700 italic">
               “Umutsuz durumlar yoktur, umutsuz insanlar vardır. Ben hiçbir zaman umudumu yitirmedim.”
