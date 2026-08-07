@@ -185,6 +185,8 @@ const ALL_SEATS = [
 
 // ─── Study Hall ───────────────────────────────────────────────────────────────
 function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, timerMode, occupiedSeats, timerState }) {
+  const now = Date.now();
+
   const renderSeat = (seat, index) => {
     const isMe = mySeatId === index;
     const occupiedBy = occupiedSeats[index];
@@ -204,10 +206,18 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
         />
       );
     } else if (occupiedBy) {
-      const otherMins = Math.floor(occupiedBy.timer_seconds / 60);
-      const otherSecs = occupiedBy.timer_seconds % 60;
+      // Hedef zaman ile o anki zaman arasındaki farkı hesaplayarak mutlak kararlı saniye bulma
+      let remainingSecs = 0;
+      if (occupiedBy.timer_running && occupiedBy.target_end_time) {
+        remainingSecs = Math.max(0, Math.floor((new Date(occupiedBy.target_end_time).getTime() - now) / 1000));
+      } else {
+        remainingSecs = occupiedBy.timer_seconds || 0;
+      }
+
+      const otherMins = Math.floor(remainingSecs / 60);
+      const otherSecs = remainingSecs % 60;
       const otherTimeStr = `${String(otherMins).padStart(2, "0")}:${String(otherSecs).padStart(2, "0")}`;
-      const showOtherBubble = occupiedBy.timer_running;
+      const showOtherBubble = occupiedBy.timer_running && remainingSecs > 0;
 
       return (
         <Student
@@ -470,7 +480,7 @@ function SessionCard({ session, index }) {
   )
 }
 
-// ─── App ──────────────────────────────────────────────────────
+// ─── App ────────────────────────────────______________________
 export default function App() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -484,6 +494,7 @@ export default function App() {
   const [studyDuration, setStudyDuration] = useState(25)
   const [breakDuration, setBreakDuration] = useState(5)
   const [secondsLeft, setSecondsLeft] = useState(25 * 60)
+  const [targetEndTime, setTargetEndTime] = useState(null)
   const [subject, setSubject] = useState("")
   const [sessions, setSessions] = useState([])
   
@@ -533,45 +544,25 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Aktif sandalyeleri ve diğer kullanıcıların timer durumlarını tutan state
+  // Aktif sandalyeleri tutan state
   const [occupiedSeats, setOccupiedSeats] = useState({});
 
-  // 1. Kendi yerel saniyemizi kararlı şekilde düşüren interval
+  // 1. Hedef bitiş zamanına göre mutlak zaman hesabı yapan kararlı timer (Zıplama asla olmaz)
   useEffect(() => {
     let timer = null;
-    if (timerState === "running") {
+    if (timerState === "running" && targetEndTime) {
       timer = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            return 0;
-          }
-          return prev - 1;
-        });
+        const now = Date.now();
+        const diff = Math.max(0, Math.floor((targetEndTime - now) / 1000));
+        setSecondsLeft(diff);
+
+        if (diff <= 0) {
+          clearInterval(timer);
+        }
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [timerState]);
-
-  // 2. Diğer kullanıcıların saniyelerini kendi aralarında akıtan simülasyon
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setOccupiedSeats(prev => {
-        const updated = {...prev};
-        Object.keys(updated).forEach((seatId) => {
-          const user = updated[seatId];
-          if (user.username !== userName && user.timer_running && user.timer_seconds > 0) {
-            updated[seatId] = {
-              ...user,
-              timer_seconds: user.timer_seconds - 1
-            };
-          }
-        });
-        return updated;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [userName]);
+  }, [timerState, targetEndTime]);
 
   // Supabase Realtime ile online kullanıcıları dinleme
   useEffect(() => {
@@ -585,7 +576,8 @@ export default function App() {
           seat_id,
           timer_seconds,
           timer_running,
-          timer_mode
+          timer_mode,
+          target_end_time
         `);
 
       if (!error && data) {
@@ -593,32 +585,21 @@ export default function App() {
         data.forEach((user) => {
           seatsMap[user.seat_id] = user;
         });
-        
-        setOccupiedSeats(prev => {
-          const merged = { ...seatsMap };
-          const myCurrentSeatId = mySeatId;
-          if (myCurrentSeatId !== null && prev[myCurrentSeatId]) {
-            merged[myCurrentSeatId] = {
-              ...merged[myCurrentSeatId],
-              timer_seconds: secondsLeft,
-              timer_running: timerState === "running",
-              timer_mode: timerMode
-            };
-          }
-          return merged;
-        });
+        setOccupiedSeats(seatsMap);
 
         const mySeat = data.find((user) => user.username === userName);
         if (mySeat && mySeatId === null) {
           setMySeatId(mySeat.seat_id);
-          if (mySeat.timer_seconds !== undefined && mySeat.timer_seconds !== null) {
-            setSecondsLeft(mySeat.timer_seconds);
+          if (mySeat.target_end_time && mySeat.timer_running) {
+            const endMs = new Date(mySeat.target_end_time).getTime();
+            if (endMs > Date.now()) {
+              setTargetEndTime(endMs);
+              setSecondsLeft(Math.max(0, Math.floor((endMs - Date.now()) / 1000)));
+              setTimerState("running");
+            }
           }
           if (mySeat.timer_mode) {
             setTimerMode(mySeat.timer_mode);
-          }
-          if (mySeat.timer_running) {
-            setTimerState("running");
           }
         }
       }
@@ -646,7 +627,7 @@ export default function App() {
     };
   }, [isLoggedIn, userName]);
 
-  // Kendi durumumuzu arka planda Supabase'e bildir
+  // Kendi durumumuzu ve hedef bitiş zamanımızı Supabase'e bildir
   useEffect(() => {
     if (!userName || mySeatId === null) return;
 
@@ -657,13 +638,14 @@ export default function App() {
           timer_seconds: secondsLeft,
           timer_running: timerState === "running",
           timer_mode: timerMode,
+          target_end_time: targetEndTime ? new Date(targetEndTime).toISOString() : null,
           updated_at: new Date().toISOString()
         })
         .eq("username", userName);
     };
 
     updateMyTimer();
-  }, [secondsLeft, timerState, timerMode, userName, mySeatId]);
+  }, [secondsLeft, timerState, timerMode, targetEndTime, userName, mySeatId]);
 
   // Supabase'den seansları çekme
   const fetchSessions = async (name) => {
@@ -732,8 +714,8 @@ export default function App() {
     if (timerState !== "running" || isCompletingRef.current) return;
     isCompletingRef.current = true;
 
-    // Sayacı hemen idle yap ki alt alta tetiklenmeler dursun
     setTimerState("idle");
+    setTargetEndTime(null);
 
     const isStudyMode = timerMode === "study";
 
@@ -776,7 +758,7 @@ export default function App() {
     }, 2000);
   }, [timerMode, studyDuration, breakDuration, subject, userName, timerState]);
 
-  // Süre sıfırlandığında ve sadece running durumundayken tetikle
+  // Süre sıfırlandığında tetikle
   useEffect(() => {
     if (secondsLeft <= 0 && timerState === "running" && !isCompletingRef.current) {
       handleComplete();
@@ -784,8 +766,10 @@ export default function App() {
   }, [secondsLeft, timerState, handleComplete]);
 
   useEffect(() => {
-    if (timerState === "idle")
-      setSecondsLeft((timerMode === "study" ? studyDuration : breakDuration) * 60)
+    if (timerState === "idle") {
+      setSecondsLeft((timerMode === "study" ? studyDuration : breakDuration) * 60);
+      setTargetEndTime(null);
+    }
   }, [studyDuration, breakDuration, timerMode, timerState]);
 
   // Koltuk seçme fonksiyonu
@@ -826,6 +810,7 @@ export default function App() {
           timer_seconds: secondsLeft,
           timer_running: timerState === "running",
           timer_mode: timerMode,
+          target_end_time: targetEndTime ? new Date(targetEndTime).toISOString() : null,
           updated_at: new Date().toISOString()
         },
         {
@@ -845,14 +830,21 @@ export default function App() {
       alert("Lütfen çalışmaya başlamak için masalardan boş bir sandalyeye tıkla!");
       return;
     }
-    if (timerState === "idle" || timerState === "paused") setTimerState("running")
-    else setTimerState("paused")
+    if (timerState === "idle" || timerState === "paused") {
+      const endTime = Date.now() + secondsLeft * 1000;
+      setTargetEndTime(endTime);
+      setTimerState("running");
+    } else {
+      setTimerState("paused");
+      setTargetEndTime(null);
+    }
   }
   
   const handleReset = () => {
-    setTimerState("idle")
-    setTimerMode("study")
-    setSecondsLeft(studyDuration * 60)
+    setTimerState("idle");
+    setTimerMode("study");
+    setSecondsLeft(studyDuration * 60);
+    setTargetEndTime(null);
   }
 
   const handleLogin = async (e) => {
