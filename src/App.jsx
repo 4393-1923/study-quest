@@ -536,7 +536,7 @@ export default function App() {
   // Aktif sandalyeleri ve diğer kullanıcıların timer durumlarını tutan state
   const [occupiedSeats, setOccupiedSeats] = useState({});
 
-  // 1. Kendi yerel saniyemizi kararlı şekilde düşüren interval (Zıplama önlendi)
+  // 1. Kendi yerel saniyemizi kararlı şekilde düşüren interval
   useEffect(() => {
     let timer = null;
     if (timerState === "running") {
@@ -725,12 +725,15 @@ export default function App() {
   const minutes = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
 
-  // Seans tamamlama kilidi (Mükerrer kayıt ve 30 kez konfeti patlamasını engeller)
+  // Seans tamamlama kilidi (Mükerrer kayıt ve 30 kez konfeti patlamasını kesin engeller)
   const isCompletingRef = useRef(false);
 
   const handleComplete = useCallback(async () => {
     if (timerState !== "running" || isCompletingRef.current) return;
     isCompletingRef.current = true;
+
+    // Sayacı hemen idle yap ki alt alta tetiklenmeler dursun
+    setTimerState("idle");
 
     const isStudyMode = timerMode === "study";
 
@@ -767,14 +770,13 @@ export default function App() {
       setTimerMode("study");
       setSecondsLeft(studyDuration * 60);
     }
-    setTimerState("idle");
 
     setTimeout(() => {
       isCompletingRef.current = false;
-    }, 1500);
+    }, 2000);
   }, [timerMode, studyDuration, breakDuration, subject, userName, timerState]);
 
-  // Süre 0 olduğunda tamamlama fonksiyonunu tetikle
+  // Süre sıfırlandığında ve sadece running durumundayken tetikle
   useEffect(() => {
     if (secondsLeft <= 0 && timerState === "running" && !isCompletingRef.current) {
       handleComplete();
