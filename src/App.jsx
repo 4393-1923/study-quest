@@ -1,10 +1,176 @@
-import { useState, useEffect, useRef, useCallback } from "react"
-import { supabase } from "./supabase"
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { turso } from "./lib/turso"
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import confetti from "canvas-confetti";
+import StatsView from "./StatsView";
+
+// ─── Çoklu Dil Sözlüğü (TR / EN) ──────────────────────────────────────────────
+const translations = {
+  tr: {
+    roomTab: "ODA",
+    statsTab: "İSTATİSTİKLER",
+    currentLocation: "ŞU AN: Main Library",
+    welcome: "Hoş geldin",
+    ataturkQuote: "“Umutsuz durumlar yoktur, umutsuz insanlar vardır. Ben hiçbir zaman umudumu yitirmedim.”",
+    ataturkAuthor: "Gazi Mustafa Kemal Atatürk",
+    studyingStatus: "Çalışılıyor",
+    emptyRoomStatus: "Boş Oda",
+    streak: "Seri",
+    today: "Bugün",
+    communityHall: "📚 TOPLULUK ÇALIŞMA SALONU",
+    focusMode: "▶ ODAK MODU",
+    studyingCount: "KİŞİ ÇALIŞIYOR",
+    sit: "OTUR",
+    onBreak: "MOLADAYIM",
+    pomodoroTimer: "⏱ POMODORO SAYACI",
+    studyBtn: "📖 ÇALIŞMA",
+    breakBtn: "☕ MOLA",
+    whatStudying: "NE ÇALIŞIYORSUN?",
+    studyingPlaceholder: "Örn: Matematik 4. Bölüm...",
+    studyMin: "ÇALIŞMA (DK)",
+    breakMin: "MOLA (DK)",
+    start: "▶ BAŞLA",
+    pause: "⏸ DURDUR",
+    resume: "▶ DEVAM",
+    finish: "💾 BİTİR",
+    reset: "↺ SIFIRLA",
+    roomChat: "💬 ODA SOHBETİ",
+    noMessages: "Henüz mesaj yok. İlk mesajı sen yaz!",
+    focusChatWarning: "Odaklanma modundasın...",
+    chatPlaceholder: "Mesaj yaz (maks 30)...",
+    send: "GÖNDER",
+    myStats: "📊 İSTATİSTİKLERİM",
+    sessionsCount: "Seans",
+    focusMinutes: "Odak Dk",
+    streakDays: "Seri",
+    weeklyChart: "📈 HAFTALIK GRAFİK",
+    history: "📋 GEÇMİŞ",
+    noSessions: "Henüz kayıtlı seansın yok — çalışmaya başla!",
+    logout: "ÇIKIŞ",
+    joinRoom: "Odaya Katıl",
+    loginDesc: "E-posta ve şifreni gir.\nİlk girişinde hesabın otomatik oluşturulur.",
+    loginBtn: "GİRİŞ YAP",
+    loggingIn: "GİRİŞ YAPILIYOR...",
+    playerReport: "OYUNCU RAPORU",
+    focusJourney: "Odak yolculuğun",
+    journeySub: "Küçük adımlar, büyük bir serüvene dönüşür.",
+    thisWeek: "BU HAFTA",
+    focusStreakCard: "ODAK SERİSİ",
+    completedCard: "TAMAMLANAN",
+    bestDayCard: "EN İYİ GÜN",
+    weeklyFocus: "HAFTALIK ODAK",
+    totalMinutes: "Toplam dakika",
+    currentWeekLabel: "BU HAFTA",
+    recentSessionsTitle: "SON SEANSLAR",
+    recentSessionsSub: "Odak geçmişin",
+    allBtn: "TÜMÜ",
+    sessionText: "seans",
+    minText: "dk",
+    activeDays: "Aktif çalışma günü",
+    registeredSessions: "Kayıtlı oturum",
+    noData: "Veri yok",
+    changeSeatWarn: "Çalışma sırasında koltuk değiştiremezsin!",
+    seatOccupied: "Bu koltuk dolu!",
+    selectSeatWarn: "Lütfen çalışmaya başlamak için masalardan boş bir sandalyeye tıkla!",
+    chatFocusWarn: "Odak modundasın! Mola zamanında yazabilirsin.",
+    earlyFinishUnder1Min: "Henüz 1 dakika dolmadı, seans kaydedilmeden sıfırlansın mı?",
+    earlyFinishConfirm: "dakikalık çalışmanı kaydedip bitirmek istiyor musun?",
+    daysShort: ["PZT", "SAL", "ÇAR", "PER", "CUM", "CTS", "PAZ"]
+  },
+  en: {
+    roomTab: "ROOM",
+    statsTab: "STATS",
+    currentLocation: "NOW: Main Library",
+    welcome: "Welcome",
+    ataturkQuote: "“There are no hopeless situations, only hopeless people. I have never lost my hope.”",
+    ataturkAuthor: "Mustafa Kemal Ataturk",
+    studyingStatus: "Studying",
+    emptyRoomStatus: "Empty Room",
+    streak: "Streak",
+    today: "Today",
+    communityHall: "📚 COMMUNITY STUDY HALL",
+    focusMode: "▶ FOCUS MODE",
+    studyingCount: "STUDYING",
+    sit: "SIT",
+    onBreak: "ON BREAK",
+    pomodoroTimer: "⏱ POMODORO TIMER",
+    studyBtn: "📖 STUDY",
+    breakBtn: "☕ BREAK",
+    whatStudying: "WHAT ARE YOU STUDYING?",
+    studyingPlaceholder: "e.g. Calculus Chapter 4...",
+    studyMin: "STUDY (MIN)",
+    breakMin: "BREAK (MIN)",
+    start: "▶ START",
+    pause: "⏸ PAUSE",
+    resume: "▶ RESUME",
+    finish: "💾 FINISH",
+    reset: "↺ RESET",
+    roomChat: "💬 ROOM CHAT",
+    noMessages: "No messages yet. Send the first one!",
+    focusChatWarning: "You are in focus mode...",
+    chatPlaceholder: "Write a message (max 30)...",
+    send: "SEND",
+    myStats: "📊 MY STATS",
+    sessionsCount: "Sessions",
+    focusMinutes: "Focus Min",
+    streakDays: "Streak",
+    weeklyChart: "📈 WEEKLY CHART",
+    history: "📋 HISTORY",
+    noSessions: "No saved sessions yet — start studying!",
+    logout: "LOGOUT",
+    joinRoom: "Join Room",
+    loginDesc: "Enter your email and password.\nYour account will be auto-created on first login.",
+    loginBtn: "LOG IN",
+    loggingIn: "LOGGING IN...",
+    playerReport: "PLAYER REPORT",
+    focusJourney: "Focus Journey",
+    journeySub: "Small steps turn into a great adventure.",
+    thisWeek: "THIS WEEK",
+    focusStreakCard: "FOCUS STREAK",
+    completedCard: "COMPLETED",
+    bestDayCard: "BEST DAY",
+    weeklyFocus: "WEEKLY FOCUS",
+    totalMinutes: "Total minutes",
+    currentWeekLabel: "THIS WEEK",
+    recentSessionsTitle: "RECENT SESSIONS",
+    recentSessionsSub: "Your focus log",
+    allBtn: "ALL",
+    sessionText: "sessions",
+    minText: "min",
+    activeDays: "Active study days",
+    registeredSessions: "Recorded sessions",
+    noData: "No data",
+    changeSeatWarn: "You cannot change seats during a session!",
+    seatOccupied: "This seat is already occupied!",
+    selectSeatWarn: "Please click on an empty chair to begin studying!",
+    chatFocusWarn: "You are in focus mode! You can chat during breaks.",
+    earlyFinishUnder1Min: "Less than 1 minute worked. Reset without saving?",
+    earlyFinishConfirm: "minutes of study will be saved. Do you want to finish?",
+    daysShort: ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+  }
+};
+
+// Sütun tepesinde dakikaları gösteren etiket
+const CustomBarLabel = (props) => {
+  const { x, y, width, value } = props;
+  if (!value || value <= 0) return null;
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 6}
+      fill="#4A3728"
+      textAnchor="middle"
+      fontSize={7}
+      fontFamily="'Press Start 2P', monospace"
+    >
+      {`${value}dk`}
+    </text>
+  );
+};
 
 // ─── Boş Sandalye Bileşeni ────────────────────────────────────────────────────
-function EmptySeat({ cx, cy, onClick, disabled }) {
+function EmptySeat({ cx, cy, onClick, disabled, label }) {
   const ts = cy - 18;
   return (
     <g 
@@ -16,13 +182,13 @@ function EmptySeat({ cx, cy, onClick, disabled }) {
       <rect x={cx - 6} y={ts - 8} width={12} height={8} fill="#A87848" rx="1" className="seat-part" />
       <rect x={cx - 7} y={ts} width={14} height={4} fill="#8B6340" rx="1" className="seat-part" />
       <text x={cx} y={ts - 12} textAnchor="middle" fontSize="7" fill="#4A3728" className="seat-label" style={{ opacity: 0, transition: "0.2s", pointerEvents: "none", fontFamily: "'Press Start 2P'" }}>
-        OTUR
+        {label}
       </text>
     </g>
   )
 }
 
-// ─── Pixel Student Sprite ────────────────────────────────────────────────────
+// ─── Pixel Student Sprite (Mola ve Çalışma Baloncuğu) ─────────────────────────
 function Student({
   cx,
   cy,
@@ -34,16 +200,14 @@ function Student({
   username,
   timerText,
   isMe,
-  showBubble
+  showBubble,
+  isBreak = false,
+  breakText = "MOLADAYIM"
 }) {
-
   const ts = cy - 18
 
   return (
-    <g
-      className={isMe ? "animate-sit" : ""}
-      style={{ transformOrigin: `${cx}px ${cy}px` }}
-    >
+    <g className={isMe ? "animate-sit" : ""} style={{ transformOrigin: `${cx}px ${cy}px` }}>
       {item === "laptop" && (
         <>
           <rect x={cx - 10} y={ts} width={20} height={2} fill="#2A2A2A" />
@@ -76,75 +240,47 @@ function Student({
         </>
       )}
 
-      {/* Kollar */}
       <rect x={cx - 12} y={ts - 5} width={7} height={4} fill={skin} rx="1" />
       <rect x={cx + 5} y={ts - 5} width={7} height={4} fill={skin} rx="1" />
-
-      {/* Gövde */}
       <rect x={cx - 7} y={ts - 16} width={14} height={11} fill={shirt} />
-
-      {/* Kafa */}
       <rect x={cx - 5} y={ts - 27} width={10} height={11} fill={skin} />
-
-      {/* Saç */}
       <rect x={cx - 5} y={ts - 27} width={10} height={5} fill={hair} />
-
-      {/* Gözler */}
       <rect x={cx - 3} y={ts - 21} width={2} height={2} fill="#333" />
       <rect x={cx + 1} y={ts - 21} width={2} height={2} fill="#333" />
 
-      {/* İKİ SATIRLI BİLGİ BALONU */}
       {showBubble && (
         <g className={isMe ? "float" : ""}>
           <rect
-            x={cx - 28}
+            x={cx - 32}
             y={ts - 52}
-            width={56}
+            width={64}
             height={22}
-            fill="#FFFFFF"
+            fill={isBreak ? "#FFF9E6" : "#FFFFFF"}
             rx="2"
-            style={{
-              stroke: "#333",
-              strokeWidth: 1
-            }}
+            style={{ stroke: isBreak ? "#B45309" : "#333", strokeWidth: 1 }}
           />
-
           <polygon
             points={`${cx-3},${ts-30} ${cx+3},${ts-30} ${cx},${ts-27}`}
-            fill="#FFFFFF"
-            style={{
-              stroke: "#333",
-              strokeWidth: 1
-            }}
+            fill={isBreak ? "#FFF9E6" : "#FFFFFF"}
+            style={{ stroke: isBreak ? "#B45309" : "#333", strokeWidth: 1 }}
           />
-
-          {/* 1. Satır: Username */}
           <text
             x={cx}
             y={ts - 43}
             textAnchor="middle"
-            fontSize="6"
-            fill="#333"
-            style={{
-              fontFamily: "'Press Start 2P'",
-              userSelect: "none",
-              fontWeight: "bold"
-            }}
+            fontSize="5.5"
+            fill={isBreak ? "#B45309" : "#333"}
+            style={{ fontFamily: "'Press Start 2P'", userSelect: "none", fontWeight: "bold" }}
           >
-            {username}
+            {isBreak ? breakText : username}
           </text>
-
-          {/* 2. Satır: Timer */}
           <text
             x={cx}
             y={ts - 34}
             textAnchor="middle"
             fontSize="6"
-            fill="#666"
-            style={{
-              fontFamily: "'Press Start 2P'",
-              userSelect: "none"
-            }}
+            fill={isBreak ? "#D97706" : "#666"}
+            style={{ fontFamily: "'Press Start 2P'", userSelect: "none" }}
           >
             {timerText}
           </text>
@@ -154,7 +290,7 @@ function Student({
   )
 }
 
-// ─── 25 Sandalye Tanımı ───────────────────────────────────────────────────────
+// ─── 25 Sandalye Koordinatları ───────────────────────────────────────────────
 const ALL_SEATS = [
   { cx: 52, cy: 165, hair: "#1A1008", skin: "#F4D2A8", shirt: "#7EB8D4", item: "laptop" },
   { cx: 94, cy: 165, hair: "#6B3A1F", skin: "#C68642", shirt: "#E57373", item: "book", bookColor: "#81C784" },
@@ -183,13 +319,12 @@ const ALL_SEATS = [
   { cx: 483, cy: 250, hair: "#2D1B0E", skin: "#8D5524", shirt: "#FFAB40", item: "write" },
 ]
 
-// ─── Study Hall ───────────────────────────────────────────────────────────────
-function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, timerMode, occupiedSeats, timerState }) {
-  const [tick, setTick] = useState(0);
+// ─── Study Hall (Salon Bileşeni) ──────────────────────────────────────────────
+function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, timerMode, occupiedSeats, timerState, t }) {
+  const [, setTick] = useState(0);
 
-  // Diğer kullanıcıların sayaçlarının akıcı görünmesi için her saniye tetikleyici
   useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    const interval = setInterval(() => setTick(n => n + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -202,6 +337,7 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
     if (isMe) {
       const myTimeStr = `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
       const showMyBubble = timerState === "running";
+      const isBreak = timerMode === "break";
 
       return (
         <Student
@@ -211,6 +347,8 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
           timerText={myTimeStr}
           isMe={true}
           showBubble={showMyBubble}
+          isBreak={isBreak}
+          breakText={t.onBreak}
         />
       );
     } else if (occupiedBy) {
@@ -225,6 +363,7 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
       const otherSecs = remainingSecs % 60;
       const otherTimeStr = `${String(otherMins).padStart(2, "0")}:${String(otherSecs).padStart(2, "0")}`;
       const showOtherBubble = occupiedBy.timer_running && remainingSecs > 0;
+      const isOtherBreak = occupiedBy.timer_mode === "break";
 
       return (
         <Student
@@ -234,6 +373,8 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
           timerText={otherTimeStr}
           isMe={false}
           showBubble={showOtherBubble}
+          isBreak={isOtherBreak}
+          breakText={t.onBreak}
         />
       );
     } else {
@@ -244,6 +385,7 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
           cy={seat.cy}
           onClick={() => onSeatClick(index)}
           disabled={false}
+          label={t.sit}
         />
       );
     }
@@ -382,7 +524,6 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
         <rect x="258" y="145" width="84" height="150" fill="#B8A882" opacity="0.35" />
         <rect x="260" y="145" width="80" height="150" fill="#C8B892" opacity="0.15" />
 
-        {/* Row A */}
         <rect x="22" y="147" width="238" height="8" fill="#A87848" />
         <rect x="22" y="147" width="238" height="3" fill="#C09060" />
         <rect x="22" y="155" width="238" height="12" fill="#8B6340" />
@@ -395,7 +536,6 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
         <rect x="568" y="167" width="10" height="16" fill="#6B4520" />
         {ALL_SEATS.slice(0, 10).map((s, i) => renderSeat(s, i))}
 
-        {/* Row B */}
         <rect x="22" y="190" width="238" height="8" fill="#A87848" />
         <rect x="22" y="190" width="238" height="3" fill="#C09060" />
         <rect x="22" y="198" width="238" height="12" fill="#8B6340" />
@@ -408,7 +548,6 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
         <rect x="568" y="210" width="10" height="16" fill="#6B4520" />
         {ALL_SEATS.slice(10, 20).map((s, i) => renderSeat(s, i + 10))}
 
-        {/* Row C */}
         <rect x="22" y="232" width="174" height="8" fill="#A87848" />
         <rect x="22" y="232" width="174" height="3" fill="#C09060" />
         <rect x="22" y="240" width="174" height="12" fill="#8B6340" />
@@ -447,9 +586,9 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
         <rect x="580" y="228" width="8" height="10" fill="#8AC870" />
         <rect x="576" y="240" width="10" height="8" fill="#6DAA5A" />
 
-        <rect x="246" y="137" width="108" height="9" fill="#4A3728" opacity="0.85" rx="2" />
+        <rect x="236" y="137" width="128" height="9" fill="#4A3728" opacity="0.85" rx="2" />
         <text x="300" y="144" textAnchor="middle" fontSize="6" fill="#F5E6C8" fontFamily="'Press Start 2P', monospace">
-          {(mySeatId !== null ? 1 : 0)}/25 STUDYING
+          {(mySeatId !== null ? 1 : 0)}/25 {t.studyingCount}
         </text>
 
         {isActive && <rect width="600" height="338" fill="url(#warmGlow)" opacity="0.06" />}
@@ -474,21 +613,32 @@ function SessionCard({ session, index }) {
     { bg: "#E0F7FA", bd: "#4DD0E1", dot: "#00BCD4" },
   ]
   const c = palette[index % palette.length]
-  const time = new Date(session.completedAt || session.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  const time = new Date(session.completed_at || session.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   return (
     <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-transform hover:scale-[1.01]" style={{ backgroundColor: c.bg, border: `2px solid ${c.bd}` }}>
       <div className="w-3 h-3 flex-shrink-0 rounded-sm" style={{ backgroundColor: c.dot }} />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-700 text-stone-700 truncate">{session.subject}</div>
-        <div className="text-xs text-stone-500 font-500">{session.duration} min session</div>
+        <div className="text-xs text-stone-500 font-500">{session.duration} min</div>
       </div>
       <div className="text-xs text-stone-400 font-600 flex-shrink-0">{time}</div>
     </div>
   )
 }
 
-// ─── App ──────────────────────────────────────────────────────
+// ─── Ana App Bileşeni ─────────────────────────────────────────────────────────
 export default function App() {
+  const [lang, setLang] = useState(() => localStorage.getItem("app_lang") || "tr");
+  const t = translations[lang] || translations.tr;
+
+  const toggleLanguage = () => {
+    const nextLang = lang === "tr" ? "en" : "tr";
+    setLang(nextLang);
+    localStorage.setItem("app_lang", nextLang);
+  };
+
+  const [activeTab, setActiveTab] = useState("room");
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -505,56 +655,41 @@ export default function App() {
   const [subject, setSubject] = useState("")
   const [sessions, setSessions] = useState([])
   
-  // Sohbet ve Mesajlaşma State'leri
   const [messages, setMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
-
   const [streak] = useState(1)
 
-  // Sayfadan çıkışta kullanıcıyı online tablosundan temizleme
+  useEffect(() => {
+    const savedUser = localStorage.getItem("study_username");
+    if (savedUser) {
+      setUserName(savedUser);
+      setIsLoggedIn(true);
+    }
+  }, []);
+
   useEffect(() => {
     if (!userName) return;
 
     const leaveRoom = async () => {
-      await supabase
-        .from("online_users")
-        .delete()
-        .eq("username", userName);
+      try {
+        await turso.execute({
+          sql: "DELETE FROM online_users WHERE username = ?",
+          args: [String(userName)]
+        });
+      } catch (err) {
+        console.error("Çıkış temizleme hatası:", err);
+      }
     };
 
     window.addEventListener("pagehide", leaveRoom);
-
     return () => {
       window.removeEventListener("beforeunload", leaveRoom);
       leaveRoom();
     };
   }, [userName]);
 
-  // Oturum (Auth) takibi
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setIsLoggedIn(true)
-        const userMail = session.user.email
-        setUserName(userMail.split("@")[0])
-      }
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setIsLoggedIn(true)
-        const userMail = session.user.email
-        setUserName(userMail.split("@")[0])
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  // Aktif sandalyeleri tutan state
   const [occupiedSeats, setOccupiedSeats] = useState({});
 
-  // 1. Hedef bitiş zamanına göre mutlak zaman hesabı (Zıplama önlendi)
   useEffect(() => {
     let timer = null;
     if (timerState === "running" && targetEndTime) {
@@ -571,32 +706,37 @@ export default function App() {
     return () => clearInterval(timer);
   }, [timerState, targetEndTime]);
 
-  // Supabase Realtime ile online kullanıcıları dinleme (Kendi saniyemizi ezmeyecek şekilde korumalı)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && timerState === "running" && targetEndTime) {
+        const now = Date.now();
+        const diff = Math.max(0, Math.floor((targetEndTime - now) / 1000));
+        setSecondsLeft(diff);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [timerState, targetEndTime]);
+
   useEffect(() => {
     if (!isLoggedIn || !userName) return;
 
     const fetchOccupied = async () => {
-      const { data, error } = await supabase
-        .from("online_users")
-        .select(`
-          username,
-          seat_id,
-          timer_seconds,
-          timer_running,
-          timer_mode,
-          target_end_time
-        `);
+      try {
+        const res = await turso.execute({
+          sql: "SELECT username, seat_id, timer_seconds, timer_running, timer_mode, target_end_time FROM online_users",
+          args: []
+        });
+        const data = res.rows || [];
 
-      if (!error && data) {
         const seatsMap = {};
         data.forEach((user) => {
-          // Kendi satırımız dışındaki kullanıcıların verilerini al
           if (user.username !== userName) {
             seatsMap[user.seat_id] = user;
           }
         });
 
-        // Kendi koltuğumuz varsa, veritabanından gelen eski saniyeyle kendi sayacımızın ezilmesini engelle
         const myCurrentSeat = data.find((user) => user.username === userName);
         if (myCurrentSeat) {
           if (mySeatId === null) {
@@ -613,87 +753,77 @@ export default function App() {
               setTimerMode(myCurrentSeat.timer_mode);
             }
           }
-          // Kendi koltuğumuzu yerel değerlerle haritaya koy
+
           if (mySeatId !== null) {
             seatsMap[mySeatId] = {
               username: userName,
               timer_running: timerState === "running",
               timer_seconds: secondsLeft,
+              timer_mode: timerMode,
               target_end_time: targetEndTime ? new Date(targetEndTime).toISOString() : null
             };
           }
         }
 
         setOccupiedSeats(seatsMap);
+      } catch (err) {
+        console.error("Online kullanıcıları çekme hatası:", err);
       }
     };
 
     fetchOccupied();
-
-    const channel = supabase
-      .channel("online_users_room")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "online_users",
-        },
-        () => {
-          fetchOccupied();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const pollInterval = setInterval(fetchOccupied, 3000);
+    return () => clearInterval(pollInterval);
   }, [isLoggedIn, userName, mySeatId, timerState, secondsLeft, targetEndTime, timerMode]);
 
-  // Kendi durumumuzu ve hedef bitiş zamanımızı Supabase'e bildir
   useEffect(() => {
     if (!userName || mySeatId === null) return;
 
     const updateMyTimer = async () => {
-      await supabase
-        .from("online_users")
-        .update({
-          timer_seconds: secondsLeft,
-          timer_running: timerState === "running",
-          timer_mode: timerMode,
-          target_end_time: targetEndTime ? new Date(targetEndTime).toISOString() : null,
-          updated_at: new Date().toISOString()
-        })
-        .eq("username", userName);
+      try {
+        const endIso = targetEndTime ? new Date(targetEndTime).toISOString() : "";
+        await turso.execute({
+          sql: `UPDATE online_users 
+                SET timer_seconds = ?, timer_running = ?, timer_mode = ?, target_end_time = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE username = ?`,
+          args: [
+            Number(secondsLeft) || 0,
+            timerState === "running" ? 1 : 0,
+            String(timerMode || "study"),
+            endIso,
+            String(userName)
+          ]
+        });
+      } catch (err) {
+        console.error("Timer güncelleme hatası:", err);
+      }
     };
 
     updateMyTimer();
   }, [secondsLeft, timerState, timerMode, targetEndTime, userName, mySeatId]);
 
-  // Supabase'den seansları çekme
   const fetchSessions = async (name) => {
     if (!name) return;
-    const { data, error } = await supabase
-      .from('study_sessions')
-      .select('*')
-      .eq('username', name)
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setSessions(data);
+    try {
+      const res = await turso.execute({
+        sql: "SELECT * FROM study_sessions WHERE username = ? ORDER BY created_at DESC",
+        args: [name]
+      });
+      setSessions(res.rows || []);
+    } catch (err) {
+      console.error("Seansları çekme hatası:", err);
     }
   };
 
-  // Supabase'den mesajları çekme
   const fetchMessages = async () => {
-    const { data, error } = await supabase
-      .from('study_messages')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (!error && data) {
-      setMessages(data.reverse());
+    try {
+      const res = await turso.execute({
+        sql: "SELECT * FROM study_messages ORDER BY created_at DESC LIMIT 20",
+        args: []
+      });
+      setMessages([...(res.rows || [])].reverse());
+    } catch (err) {
+      console.error("Mesajları çekme hatası:", err);
     }
   };
 
@@ -706,31 +836,54 @@ export default function App() {
     }
   }, [isLoggedIn, userName]);
 
-  const studySessions = sessions.filter(s => s.type === 'study');
+  const studySessions = sessions.filter(s => s.type === 'study' || !s.type);
 
   const totalMinToday = studySessions
-    .filter((s) => new Date(s.created_at || s.completedAt) > new Date(Date.now() - 86400000))
+    .filter((s) => new Date(s.created_at || s.completed_at) > new Date(Date.now() - 86400000))
     .reduce((acc, s) => acc + (Number(s.duration) || 0), 0);
 
-  // Haftalık Grafik Verisi
-  const chartData = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((day, i) => {
-    const daySessions = studySessions.filter(s => {
-      const d = new Date(s.created_at || s.completedAt);
-      const dayIndex = d.getDay() === 0 ? 6 : d.getDay() - 1;
-      return dayIndex === i;
+  // ─── ANA SAYFA HAFTALIK GRAFİK (Kesin Takvim Haftası Filtresi) ───────────────
+  const chartData = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay(); // 0: Paz, 1: Pzt...
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+
+    // İçinde bulunulan haftanın Pazartesi (00:00:00)
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    return t.daysShort.map((dayLabel, i) => {
+      const targetDayStart = new Date(monday);
+      targetDayStart.setDate(monday.getDate() + i);
+      targetDayStart.setHours(0, 0, 0, 0);
+
+      const targetDayEnd = new Date(targetDayStart);
+      targetDayEnd.setHours(23, 59, 59, 999);
+
+      const start = targetDayStart.getTime();
+      const end = targetDayEnd.getTime();
+
+      // Sadece bu haftanın o gününe ait seansları topla (Dünün Pazar günü buraya giremez!)
+      const daySessions = studySessions.filter((s) => {
+        const rawDate = s.completed_at || s.created_at;
+        if (!rawDate) return false;
+        const timeMs = new Date(rawDate).getTime();
+        return timeMs >= start && timeMs <= end;
+      });
+
+      return {
+        day: dayLabel,
+        minutes: daySessions.reduce((acc, s) => acc + (Number(s.duration) || 0), 0)
+      };
     });
-    return {
-      day,
-      minutes: daySessions.reduce((acc, s) => acc + (Number(s.duration) || 0), 0)
-    };
-  });
+  }, [studySessions, t.daysShort]);
 
   const completedSessions = studySessions.length;
   const pad = (n) => String(n).padStart(2, "0");
   const minutes = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
 
-  // Seans tamamlama kilidi
   const isCompletingRef = useRef(false);
 
   const handleComplete = useCallback(async () => {
@@ -743,45 +896,54 @@ export default function App() {
     const isStudyMode = timerMode === "study";
 
     if (isStudyMode) {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 
-      const dur = studyDuration;
-      const sub = subject.trim() || "Focus session";
-      
-      const newSession = {
-        username: userName,
-        subject: sub,
-        duration: Number(dur),
-        type: "study",
-        created_at: new Date().toISOString()
-      };
+      const dur = Number(studyDuration) || 1;
+      const sub = subject.trim() || (lang === "tr" ? "Odak Seansı" : "Focus session");
+      const nowIso = new Date().toISOString();
+      const todayDate = nowIso.split("T")[0];
 
-      const { data, error } = await supabase
-        .from('study_sessions')
-        .insert([newSession])
-        .select();
+      try {
+        await turso.execute({
+          sql: `INSERT INTO study_sessions (username, subject, duration, type, seat_id, completed_at, status) 
+                VALUES (?, ?, ?, ?, ?, ?, 'completed')`,
+          args: [userName, sub, dur, "study", mySeatId, nowIso]
+        });
 
-      if (!error && data) {
-        setSessions((prev) => [data[0], ...prev]);
+        await turso.execute({
+          sql: `INSERT INTO daily_study_stats (username, study_date, total_duration)
+                VALUES (?, ?, ?)
+                ON CONFLICT(username, study_date) DO UPDATE SET
+                  total_duration = total_duration + excluded.total_duration,
+                  updated_at = CURRENT_TIMESTAMP`,
+          args: [userName, todayDate, dur]
+        });
+
+        setSessions((prev) => [{
+          username: userName,
+          subject: sub,
+          duration: dur,
+          type: "study",
+          seat_id: mySeatId,
+          completed_at: nowIso,
+          created_at: nowIso
+        }, ...prev]);
+      } catch (err) {
+        console.error("Seans kaydetme hatası:", err);
       }
 
       setTimerMode("break");
-      setSecondsLeft(breakDuration * 60);
+      setSecondsLeft((Number(breakDuration) || 5) * 60);
     } else {
       setTimerMode("study");
-      setSecondsLeft(studyDuration * 60);
+      setSecondsLeft((Number(studyDuration) || 25) * 60);
     }
 
     setTimeout(() => {
       isCompletingRef.current = false;
     }, 2000);
-  }, [timerMode, studyDuration, breakDuration, subject, userName, timerState]);
+  }, [timerMode, studyDuration, breakDuration, subject, userName, mySeatId, timerState, lang]);
 
-  // Süre sıfırlandığında tetikle
   useEffect(() => {
     if (secondsLeft <= 0 && timerState === "running" && !isCompletingRef.current) {
       handleComplete();
@@ -790,69 +952,79 @@ export default function App() {
 
   useEffect(() => {
     if (timerState === "idle") {
-      setSecondsLeft((timerMode === "study" ? studyDuration : breakDuration) * 60);
+      const activeDuration = timerMode === "study" 
+        ? (Number(studyDuration) || 1) 
+        : (Number(breakDuration) || 1);
+      setSecondsLeft(activeDuration * 60);
       setTargetEndTime(null);
     }
   }, [studyDuration, breakDuration, timerMode, timerState]);
 
-  // Koltuk seçme fonksiyonu
   const handleSeatClick = async (index) => {
     if (timerState === "running") {
-      alert("Çalışma sırasında koltuk değiştiremezsin!");
+      alert(t.changeSeatWarn);
       return;
     }
 
-    if (mySeatId === index) {
-      return;
-    }
+    if (mySeatId === index) return;
 
-    const { data: existingSeat } = await supabase
-      .from("online_users")
-      .select("username")
-      .eq("seat_id", index)
-      .maybeSingle();
+    try {
+      const checkSeat = await turso.execute({
+        sql: "SELECT username FROM online_users WHERE seat_id = ? LIMIT 1",
+        args: [Number(index)]
+      });
 
-    if (existingSeat) {
-      alert("Bu koltuk dolu!");
-      return;
-    }
+      if (checkSeat.rows.length > 0 && checkSeat.rows[0].username !== userName) {
+        alert(t.seatOccupied);
+        return;
+      }
 
-    if (mySeatId !== null) {
-      await supabase
-        .from("online_users")
-        .delete()
-        .eq("username", userName);
-    }
+      await turso.execute({
+        sql: "DELETE FROM online_users WHERE username = ?",
+        args: [String(userName)]
+      });
 
-    const { error } = await supabase
-      .from("online_users")
-      .upsert(
-        {
-          username: userName,
-          seat_id: index,
-          timer_seconds: secondsLeft,
-          timer_running: timerState === "running",
-          timer_mode: timerMode,
-          target_end_time: targetEndTime ? new Date(targetEndTime).toISOString() : null,
-          updated_at: new Date().toISOString()
-        },
-        {
-          onConflict: "username"
-        }
-      );
+      const uniqueId = typeof crypto !== "undefined" && crypto.randomUUID 
+        ? crypto.randomUUID 
+        : "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+      
+      const nowIso = new Date().toISOString();
+      const endIso = targetEndTime ? new Date(targetEndTime).toISOString() : "";
 
-    if (!error) {
+      await turso.execute({
+        sql: `INSERT INTO online_users (
+                id, username, seat_id, timer_seconds, timer_running, 
+                timer_mode, target_end_time, updated_at
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          String(uniqueId),
+          String(userName),
+          Number(index),
+          Number(secondsLeft) || 0,
+          timerState === "running" ? 1 : 0,
+          String(timerMode || "study"),
+          endIso,
+          nowIso
+        ]
+      });
+
       setMySeatId(index);
-    } else {
-      alert(error.message);
+    } catch (err) {
+      console.error("Koltuk seçilemedi:", err);
+      alert("Koltuk seçilemedi: " + (err.message || ""));
     }
   };
 
   const handleStart = () => {
     if (mySeatId === null) {
-      alert("Lütfen çalışmaya başlamak için masalardan boş bir sandalyeye tıkla!");
+      alert(t.selectSeatWarn);
       return;
     }
+
+    if (studyDuration === "" || Number(studyDuration) < 1) setStudyDuration(1);
+    if (breakDuration === "" || Number(breakDuration) < 1) setBreakDuration(1);
+
     if (timerState === "idle" || timerState === "paused") {
       const endTime = Date.now() + secondsLeft * 1000;
       setTargetEndTime(endTime);
@@ -861,56 +1033,102 @@ export default function App() {
       setTimerState("paused");
       setTargetEndTime(null);
     }
-  }
+  };
   
   const handleReset = () => {
     setTimerState("idle");
     setTimerMode("study");
-    setSecondsLeft(studyDuration * 60);
+    setSecondsLeft((Number(studyDuration) || 25) * 60);
     setTargetEndTime(null);
-  }
+  };
+
+  const handleEarlyFinish = async () => {
+    if (timerMode !== "study") {
+      handleReset();
+      return;
+    }
+
+    const totalSeconds = (Number(studyDuration) || 25) * 60;
+    const elapsedSeconds = totalSeconds - secondsLeft;
+    const workedMinutes = Math.floor(elapsedSeconds / 60);
+
+    if (workedMinutes < 1) {
+      if (confirm(t.earlyFinishUnder1Min)) {
+        handleReset();
+      }
+      return;
+    }
+
+    if (confirm(`${workedMinutes} ${t.earlyFinishConfirm}`)) {
+      const sub = subject.trim() || (lang === "tr" ? "Odak Seansı" : "Focus session");
+      const nowIso = new Date().toISOString();
+      const todayDate = nowIso.split("T")[0];
+
+      try {
+        await turso.execute({
+          sql: `INSERT INTO study_sessions (username, subject, duration, type, seat_id, completed_at, status) 
+                VALUES (?, ?, ?, ?, ?, ?, 'completed')`,
+          args: [userName, sub, workedMinutes, "study", mySeatId, nowIso]
+        });
+
+        await turso.execute({
+          sql: `INSERT INTO daily_study_stats (username, study_date, total_duration)
+                VALUES (?, ?, ?)
+                ON CONFLICT(username, study_date) DO UPDATE SET
+                  total_duration = total_duration + excluded.total_duration,
+                  updated_at = CURRENT_TIMESTAMP`,
+          args: [userName, todayDate, workedMinutes]
+        });
+
+        setSessions((prev) => [{
+          username: userName,
+          subject: sub,
+          duration: workedMinutes,
+          type: "study",
+          seat_id: mySeatId,
+          completed_at: nowIso,
+          created_at: nowIso
+        }, ...prev]);
+
+        confetti({ particleCount: 60, spread: 60, origin: { y: 0.7 } });
+      } catch (err) {
+        console.error("Erken bitirme hatası:", err);
+      }
+
+      handleReset();
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email || !password) return;
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (!error) {
+    try {
+      const userShortName = email.split("@")[0];
+      setUserName(userShortName);
+      setIsLoggedIn(true);
+      localStorage.setItem("study_username", userShortName);
+    } catch (err) {
+      alert("Giriş hatası: " + err.message);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (error.message.toLowerCase().includes("invalid login credentials")) {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (signUpError) {
-        alert(signUpError.message);
-      } else {
-        alert("Hesabın oluşturuldu! Şimdi giriş yapabilirsin.");
-      }
-    } else {
-      alert(error.message);
-    }
-    setLoading(false);
   };
 
   const handleLogout = async () => {
     if (userName) {
-      await supabase
-        .from("online_users")
-        .delete()
-        .eq("username", userName);
+      try {
+        await turso.execute({
+          sql: "DELETE FROM online_users WHERE username = ?",
+          args: [String(userName)]
+        });
+      } catch (err) {
+        console.error(err);
+      }
     }
 
-    await supabase.auth.signOut();
+    localStorage.removeItem("study_username");
     setMySeatId(null);
     setUserName("");
     setIsLoggedIn(false);
@@ -919,27 +1137,29 @@ export default function App() {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (isActive) {
-      alert("Odak modundasın! Mola zamanında yazabilirsin.");
+      alert(t.chatFocusWarn);
       return;
     }
     if (!chatInput.trim()) return;
 
     const msgText = chatInput.trim().slice(0, 30); 
 
-    const { error } = await supabase
-      .from('study_messages')
-      .insert([{ username: userName, message: msgText }]);
-
-    if (!error) {
+    try {
+      await turso.execute({
+        sql: "INSERT INTO study_messages (username, message) VALUES (?, ?)",
+        args: [userName, msgText]
+      });
       setChatInput("");
       fetchMessages();
+    } catch (err) {
+      console.error("Mesaj gönderilemedi:", err);
     }
   };
 
   const isActive = timerState === "running"
   const modeColor = timerMode === "study" ? "#6B9E78" : "#7EA8C4"
   const totalOccupancy = Object.keys(occupiedSeats).length;
-  const occupancyLabel = totalOccupancy > 0 ? "Çalışılıyor" : "Boş Oda"
+  const occupancyLabel = totalOccupancy > 0 ? t.studyingStatus : t.emptyRoomStatus;
   const occupancyColor = totalOccupancy > 0 ? "#81C784" : "#64B5F6"
 
   if (!isLoggedIn) {
@@ -947,14 +1167,10 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center scanline px-4" style={{ background: "#F2EDE3" }}>
         <form onSubmit={handleLogin} className="pixel-border bg-[#FDFAF5] p-8 max-w-sm w-full flex flex-col items-center gap-6" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14" }}>
           <h1 className="text-xl text-center" style={{ fontFamily: 'var(--font-pixel)', color: "#4A3728" }}>
-            Odaya Katıl
+            {t.joinRoom}
           </h1>
-          <p className="text-center text-sm font-600" style={{ color: "#7A6A58" }}>
-            E-posta ve şifreni gir.
-            <br />
-            İlk girişinde hesabın otomatik oluşturulur.
-            <br />
-            Daha sonra aynı bilgilerle giriş yapabilirsin.
+          <p className="text-center text-sm font-600 whitespace-pre-line" style={{ color: "#7A6A58" }}>
+            {t.loginDesc}
           </p>
           <input 
             type="email" 
@@ -966,8 +1182,8 @@ export default function App() {
             required
           />
           <input
-            type="password"
-            placeholder="Şifre"
+            type="password" 
+            placeholder="******" 
             className="w-full p-3 bg-[#F5F0E8] outline-none focus:bg-white text-center font-bold"
             style={{ border: "2px solid #C4B8A8" }}
             value={password}
@@ -980,7 +1196,7 @@ export default function App() {
             className="pixel-btn w-full text-white py-3 font-bold" 
             style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.8rem', background: "#6B9E78", borderTop: "3px solid #8BB898", opacity: loading ? 0.6 : 1 }}
           >
-            {loading ? "GİRİŞ YAPILIYOR..." : "GİRİŞ YAP"}
+            {loading ? t.loggingIn : t.loginBtn}
           </button>
         </form>
       </div>
@@ -989,6 +1205,51 @@ export default function App() {
 
   return (
     <div className="min-h-screen" style={{ background: "#F2EDE3", fontFamily: "'Nunito', sans-serif" }}>
+      <div className="w-full bg-[#EDE5D5] border-b-2 border-[#D8CEB8] px-5 flex items-center justify-between">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab("room")}
+            className={`px-5 py-2.5 font-bold transition-all text-xs ${
+              activeTab === "room"
+                ? "bg-[#FDFAF5] text-[#2A5A40] border-t-4 border-[#2A5A40]"
+                : "text-stone-600 hover:text-stone-900"
+            }`}
+            style={{ fontFamily: "'Press Start 2P'", fontSize: "8px" }}
+          >
+            {t.roomTab}
+          </button>
+          <button
+            onClick={() => setActiveTab("stats")}
+            className={`px-5 py-2.5 font-bold transition-all text-xs ${
+              activeTab === "stats"
+                ? "bg-[#FDFAF5] text-[#2A5A40] border-t-4 border-[#2A5A40]"
+                : "text-stone-600 hover:text-stone-900"
+            }`}
+            style={{ fontFamily: "'Press Start 2P'", fontSize: "8px" }}
+          >
+            {t.statsTab}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-4 py-2">
+          <button
+            onClick={toggleLanguage}
+            className="px-2.5 py-1 text-[8px] font-bold rounded bg-[#FDFAF5] border-2 border-[#4A3728] text-[#4A3728] hover:bg-[#F2EDE3] transition-all"
+            style={{ fontFamily: "'Press Start 2P'" }}
+            title="Dili Değiştir / Change Language"
+          >
+            🌐 {lang.toUpperCase()}
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#81C784]"></span>
+            <span className="text-[8px] font-bold text-stone-600" style={{ fontFamily: "'Press Start 2P'" }}>
+              {t.currentLocation}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <header className="w-full border-b-4 border-stone-800" style={{ background: "#FDFAF5" }}>
         <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
@@ -1006,16 +1267,16 @@ export default function App() {
             </div>
             <div>
               <h1 style={{ fontFamily: "'Press Start 2P'", fontSize: 13, color: "#3D3028", lineHeight: 1 }}>StudyQuest</h1>
-              <p className="text-stone-500 text-xs font-600 mt-1">Hoş geldin, {userName}!</p>
+              <p className="text-stone-500 text-xs font-600 mt-1">{t.welcome}, {userName}!</p>
             </div>
           </div>
           
           <div className="flex-1 max-w-lg hidden lg:block text-center px-4">
             <p className="text-xs font-700 text-stone-700 italic">
-              “Umutsuz durumlar yoktur, umutsuz insanlar vardır. Ben hiçbir zaman umudumu yitirmedim.”
+              {t.ataturkQuote}
             </p>
             <p className="text-[10px] font-800 text-amber-800 mt-0.5">
-              Gazi Mustafa Kemal Atatürk
+              {t.ataturkAuthor}
             </p>
           </div>
 
@@ -1028,226 +1289,298 @@ export default function App() {
               </div>
             </div>
             <div className="text-center px-3 py-1.5 rounded-lg bg-amber-50 border-2 border-amber-300">
-              <div className="text-xs text-amber-600 font-700">🔥 Streak</div>
+              <div className="text-xs text-amber-600 font-700">🔥 {t.streak}</div>
               <div className="text-lg font-800 text-amber-700 leading-none">{streak}</div>
             </div>
             <div className="text-center px-3 py-1.5 rounded-lg border-2 border-green-300" style={{ backgroundColor: "#EEF5E8" }}>
-              <div className="text-xs text-green-700 font-700">Today</div>
+              <div className="text-xs text-green-700 font-700">{t.today}</div>
               <div className="text-lg font-800 text-green-800 leading-none">{totalMinToday}m</div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6 grid gap-5" style={{ gridTemplateColumns: "minmax(0,1fr) 280px" }}>
-        <div className="flex flex-col gap-5 min-w-0">
-          <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14" }}>
-            <div className="px-3 py-2 flex items-center justify-between" style={{ background: "#4A3728" }}>
-              <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>📚 COMMUNITY STUDY HALL</span>
-              <div className="flex items-center gap-2">
-                {isActive && (
-                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 7, color: "#7EC8A4", animation: "float 2s ease-in-out infinite" }}>▶ FOCUS MODE</span>
-                )}
-                <div className="flex gap-1">
-                  {["#FF6B6B", "#FFD93D", "#6BCB77"].map((c) => (
-                    <div key={c} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
-                  ))}
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        {activeTab === "room" ? (
+          <div className="grid gap-5" style={{ gridTemplateColumns: "minmax(0,1fr) 280px" }}>
+            <div className="flex flex-col gap-5 min-w-0">
+              <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14" }}>
+                <div className="px-3 py-2 flex items-center justify-between" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.communityHall}</span>
+                  <div className="flex items-center gap-2">
+                    {isActive && (
+                      <span style={{ fontFamily: "'Press Start 2P'", fontSize: 7, color: "#7EC8A4", animation: "float 2s ease-in-out infinite" }}>{t.focusMode}</span>
+                    )}
+                    <div className="flex gap-1">
+                      {["#FF6B6B", "#FFD93D", "#6BCB77"].map((c) => (
+                        <div key={c} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <StudyHall 
-              isActive={isActive} 
-              userName={userName} 
-              mySeatId={mySeatId} 
-              minutes={minutes} 
-              secs={secs} 
-              timerMode={timerMode}
-              occupiedSeats={occupiedSeats}
-              onSeatClick={handleSeatClick}
-              timerState={timerState}
-            />
-          </div>
-
-          <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14", background: "#FDFAF5" }}>
-            <div className="px-4 py-2" style={{ background: "#4A3728" }}>
-              <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>⏱ POMODORO TIMER</span>
-            </div>
-            <div className="p-5">
-              <div className="flex gap-2 mb-5">
-                {(["study", "break"]).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => {
-                      if (timerState === "idle") {
-                        setTimerMode(mode)
-                        setSecondsLeft((mode === "study" ? studyDuration : breakDuration) * 60)
-                      }
-                    }}
-                    className="flex-1 py-2.5 rounded transition-all font-700"
-                    style={{
-                      fontFamily: "'Press Start 2P'", fontSize: 8,
-                      background: timerMode === mode ? (mode === "study" ? "#6B9E78" : "#7EA8C4") : "#E8E0D4",
-                      color: timerMode === mode ? "#fff" : "#7A6A58",
-                      border: `3px solid ${timerMode === mode ? "#4A6E54" : "#C4B8A8"}`,
-                      cursor: timerState !== "idle" ? "not-allowed" : "pointer",
-                      opacity: timerState !== "idle" && timerMode !== mode ? 0.45 : 1,
-                    }}
-                  >
-                    {mode === "study" ? "📖 STUDY" : "☕ BREAK"}
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative flex items-center justify-center py-7 mb-5 rounded-lg scanline overflow-hidden" style={{ background: "#1A2822", border: "4px solid #0E1A14", boxShadow: "inset 0 0 30px rgba(0,0,0,0.5)" }}>
-                <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at center, ${timerMode === "study" ? "rgba(107,158,120,0.15)" : "rgba(126,168,196,0.15)"} 0%, transparent 70%)` }} />
-                <div className="relative z-10 tabular-nums" style={{ fontFamily: "'VT323'", fontSize: 96, lineHeight: 1, color: timerMode === "study" ? "#7EC8A4" : "#7EB8D4", textShadow: `0 0 20px ${timerMode === "study" ? "rgba(126,200,164,0.6)" : "rgba(126,184,212,0.6)"}`, letterSpacing: "0.04em" }}>
-                  {pad(minutes)}<span className={isActive ? "blink" : ""}>:</span>{pad(secs)}
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <label className="block mb-1.5 text-stone-600" style={{ fontFamily: "'Press Start 2P'", fontSize: 7 }}>WHAT ARE YOU STUDYING?</label>
-                <input
-                  type="text"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="e.g. Calculus Chapter 4..."
-                  className="w-full px-3 py-2.5 text-sm font-600 text-stone-700 rounded outline-none transition-all"
-                  style={{ background: "#F5F0E8", border: "2px solid #C4B8A8" }}
-                  onFocus={(e) => (e.target.style.borderColor = "#8BAD6E")}
-                  onBlur={(e) => (e.target.style.borderColor = "#C4B8A8")}
+                <StudyHall 
+                  isActive={isActive} 
+                  userName={userName} 
+                  mySeatId={mySeatId} 
+                  minutes={minutes} 
+                  secs={secs} 
+                  timerMode={timerMode}
+                  occupiedSeats={occupiedSeats}
+                  onSeatClick={handleSeatClick}
+                  timerState={timerState}
+                  t={t}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                {[
-                  { label: "STUDY (MIN)", value: studyDuration, setter: setStudyDuration, min: 1, max: 90 },
-                  { label: "BREAK (MIN)", value: breakDuration, setter: setBreakDuration, min: 1, max: 30 },
-                ].map(({ label, value, setter, min, max }) => (
-                  <div key={label}>
-                    <label className="block mb-1 text-stone-500" style={{ fontFamily: "'Press Start 2P'", fontSize: 7 }}>{label}</label>
-                    <div className="flex items-center overflow-hidden" style={{ border: "2px solid #C4B8A8", borderRadius: 6, background: "#F5F0E8" }}>
-                      <button onClick={() => setter((v) => Math.max(min, v - 1))} disabled={timerState !== "idle"} className="w-9 h-9 flex items-center justify-center text-lg font-800 text-stone-600 hover:bg-stone-200 transition-colors flex-shrink-0">−</button>
-                      <input type="number" value={value} min={min} max={max} onChange={(e) => setter(Math.min(max, Math.max(min, parseInt(e.target.value) || min)))} disabled={timerState !== "idle"} className="flex-1 text-center font-800 text-stone-800 bg-transparent outline-none w-0" style={{ fontFamily: "'VT323'", fontSize: 26 }} />
-                      <button onClick={() => setter((v) => Math.min(max, v + 1))} disabled={timerState !== "idle"} className="w-9 h-9 flex items-center justify-center text-lg font-800 text-stone-600 hover:bg-stone-200 transition-colors flex-shrink-0">+</button>
+              <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14", background: "#FDFAF5" }}>
+                <div className="px-4 py-2" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.pomodoroTimer}</span>
+                </div>
+                <div className="p-5">
+                  <div className="flex gap-2 mb-5">
+                    {(["study", "break"]).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => {
+                          if (timerState === "idle") {
+                            setTimerMode(mode)
+                            setSecondsLeft((mode === "study" ? Number(studyDuration) || 25 : Number(breakDuration) || 5) * 60)
+                          }
+                        }}
+                        className="flex-1 py-2.5 rounded transition-all font-700"
+                        style={{
+                          fontFamily: "'Press Start 2P'", fontSize: 8,
+                          background: timerMode === mode ? (mode === "study" ? "#6B9E78" : "#7EA8C4") : "#E8E0D4",
+                          color: timerMode === mode ? "#fff" : "#7A6A58",
+                          border: `3px solid ${timerMode === mode ? "#4A6E54" : "#C4B8A8"}`,
+                          cursor: timerState !== "idle" ? "not-allowed" : "pointer",
+                          opacity: timerState !== "idle" && timerMode !== mode ? 0.45 : 1,
+                        }}
+                      >
+                        {mode === "study" ? t.studyBtn : t.breakBtn}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative flex items-center justify-center py-7 mb-5 rounded-lg scanline overflow-hidden" style={{ background: "#1A2822", border: "4px solid #0E1A14", boxShadow: "inset 0 0 30px rgba(0,0,0,0.5)" }}>
+                    <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at center, ${timerMode === "study" ? "rgba(107,158,120,0.15)" : "rgba(126,168,196,0.15)"} 0%, transparent 70%)` }} />
+                    <div className="relative z-10 tabular-nums" style={{ fontFamily: "'VT323'", fontSize: 96, lineHeight: 1, color: timerMode === "study" ? "#7EC8A4" : "#7EB8D4", textShadow: `0 0 20px ${timerMode === "study" ? "rgba(126,200,164,0.6)" : "rgba(126,184,212,0.6)"}`, letterSpacing: "0.04em" }}>
+                      {pad(minutes)}<span className={isActive ? "blink" : ""}>:</span>{pad(secs)}
                     </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={handleStart}
-                  className="flex-1 py-3 rounded font-700 text-white pixel-btn"
-                  style={{ fontFamily: "'Press Start 2P'", fontSize: 9, background: timerState === "running" ? "#E07050" : modeColor, borderTop: `3px solid ${timerState === "running" ? "#F08070" : timerMode === "study" ? "#8BB898" : "#9EC4D8"}` }}
-                >
-                  {timerState === "running" ? "⏸ PAUSE" : timerState === "paused" ? "▶ RESUME" : "▶ START"}
-                </button>
-                <button
-                  onClick={handleReset}
-                  className="px-5 py-3 rounded font-700 text-stone-700 pixel-btn"
-                  style={{ fontFamily: "'Press Start 2P'", fontSize: 9, background: "#E8DFD0", borderTop: "3px solid #F5ECE0" }}
-                >
-                  ↺ RESET
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-5">
-          {/* ODA SOHBETİ */}
-          <div className="rounded-lg overflow-hidden flex flex-col" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5", height: "300px" }}>
-            <div className="px-4 py-2" style={{ background: "#4A3728" }}>
-              <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>💬 ODA SOHBETİ</span>
-            </div>
-            <div className="p-3 flex-1 overflow-y-auto flex flex-col gap-2 text-xs">
-              {messages.length === 0 ? (
-                <div className="text-center text-stone-400 my-auto">Henüz mesaj yok. İlk mesajı sen yaz!</div>
-              ) : (
-                messages.map((m, i) => (
-                  <div key={m.id || i} className="p-2 rounded bg-[#F5F0E8]" style={{ border: "1px solid #C4B8A8" }}>
-                    <span className="font-bold text-amber-800">{m.username}: </span>
-                    <span className="text-stone-700">{m.message}</span>
+                  <div className="mb-4">
+                    <label className="block mb-1.5 text-stone-600" style={{ fontFamily: "'Press Start 2P'", fontSize: 7 }}>{t.whatStudying}</label>
+                    <input
+                      type="text"
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      placeholder={t.studyingPlaceholder}
+                      className="w-full px-3 py-2.5 text-sm font-600 text-stone-700 rounded outline-none transition-all"
+                      style={{ background: "#F5F0E8", border: "2px solid #C4B8A8" }}
+                      onFocus={(e) => (e.target.style.borderColor = "#8BAD6E")}
+                      onBlur={(e) => (e.target.style.borderColor = "#C4B8A8")}
+                    />
                   </div>
-                ))
-              )}
-            </div>
-            <form onSubmit={handleSendMessage} className="p-2 border-t-2 border-[#C4B8A8] flex gap-2 bg-[#F2EDE3]">
-              <input 
-                type="text"
-                placeholder={isActive ? "Odaklanma modundasın..." : "Mesaj yaz (max 30)..."}
-                maxLength={30}
-                value={chatInput}
-                disabled={isActive}
-                onChange={(e) => setChatInput(e.target.value)}
-                className={`flex-1 px-2 py-1.5 text-xs bg-white outline-none rounded ${isActive ? 'opacity-50 cursor-not-allowed' : ''}`}
-                style={{ border: "1px solid #C4B8A8" }}
-              />
-              <button 
-                type="submit" 
-                disabled={isActive}
-                className={`px-3 py-1 text-white text-xs font-bold rounded ${isActive ? 'bg-stone-400 cursor-not-allowed' : 'bg-[#6B9E78]'}`} 
-                style={{ fontFamily: "'Press Start 2P'", fontSize: "7px" }}
-              >
-                GÖNDER
-              </button>
-            </form>
-          </div>
 
-          <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5" }}>
-            <div className="px-4 py-2" style={{ background: "#4A3728" }}>
-              <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>📊 MY STATS</span>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-3">
-              {[
-                { label: "Sessions", value: completedSessions, icon: "📚", bg: "#E8F5EC", bd: "#81C784", tx: "#3D7A50" },
-                { label: "Focus Min", value: totalMinToday, icon: "⏰", bg: "#FFF8E8", bd: "#FFD080", tx: "#7A6020" },
-                { label: "Streak", value: `${streak}d`, icon: "🔥", bg: "#FFF3EC", bd: "#FFB080", tx: "#804030" },
-                { label: "Developed by Emine Bolat",  icon: "⭐", bg: "#F5F0FF", bd: "#C0A0E0", tx: "#604888" },
-              ].map(({ label, value, icon, bg, bd, tx }) => (
-                <div key={label} className="rounded-lg p-3 text-center" style={{ background: bg, border: `2px solid ${bd}` }}>
-                  <div className="text-xl mb-1">{icon}</div>
-                  <div className="text-xl font-800 leading-none" style={{ color: tx }}>{value}</div>
-                  <div className="text-xs font-600 mt-0.5" style={{ color: tx, opacity: 0.7 }}>{label}</div>
+                  <div className="grid grid-cols-2 gap-3 mb-5">
+                    {[
+                      { label: t.studyMin, value: studyDuration, setter: setStudyDuration, min: 1, max: 1440 },
+                      { label: t.breakMin, value: breakDuration, setter: setBreakDuration, min: 1, max: 1440 },
+                    ].map(({ label, value, setter, min, max }) => (
+                      <div key={label}>
+                        <label className="block mb-1 text-stone-500" style={{ fontFamily: "'Press Start 2P'", fontSize: 7 }}>{label}</label>
+                        <div className="flex items-center overflow-hidden" style={{ border: "2px solid #C4B8A8", borderRadius: 6, background: "#F5F0E8" }}>
+                          <button 
+                            onClick={() => {
+                              const cur = Number(value) || min;
+                              setter(Math.max(min, cur - 1));
+                            }} 
+                            disabled={timerState !== "idle"} 
+                            className="w-9 h-9 flex items-center justify-center text-lg font-800 text-stone-600 hover:bg-stone-200 transition-colors flex-shrink-0"
+                          >
+                            −
+                          </button>
+                          <input 
+                            type="number" 
+                            value={value} 
+                            min={min} 
+                            max={max} 
+                            onChange={(e) => {
+                              const valStr = e.target.value;
+                              if (valStr === "") {
+                                setter("");
+                                return;
+                              }
+                              const num = parseInt(valStr, 10);
+                              if (!isNaN(num)) {
+                                setter(Math.min(max, Math.max(0, num)));
+                              }
+                            }} 
+                            onBlur={() => {
+                              if (value === "" || Number(value) < min) {
+                                setter(min);
+                              }
+                            }}
+                            disabled={timerState !== "idle"} 
+                            className="flex-1 text-center font-800 text-stone-800 bg-transparent outline-none w-0" 
+                            style={{ fontFamily: "'VT323'", fontSize: 26 }} 
+                          />
+                          <button 
+                            onClick={() => {
+                              const cur = Number(value) || 0;
+                              setter(Math.min(max, cur + 1));
+                            }} 
+                            disabled={timerState !== "idle"} 
+                            className="w-9 h-9 flex items-center justify-center text-lg font-800 text-stone-600 hover:bg-stone-200 transition-colors flex-shrink-0"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleStart}
+                      className="flex-1 py-3 rounded font-700 text-white pixel-btn"
+                      style={{
+                        fontFamily: "'Press Start 2P'",
+                        fontSize: 8,
+                        background: timerState === "running" ? "#E07050" : modeColor,
+                        borderTop: `3px solid ${timerState === "running" ? "#F08070" : timerMode === "study" ? "#8BB898" : "#9EC4D8"}`
+                      }}
+                    >
+                      {timerState === "running" ? t.pause : timerState === "paused" ? t.resume : t.start}
+                    </button>
+
+                    <button
+                      onClick={handleEarlyFinish}
+                      disabled={timerState === "idle"}
+                      className="px-3 py-3 rounded font-700 text-stone-800 pixel-btn"
+                      style={{
+                        fontFamily: "'Press Start 2P'",
+                        fontSize: 8,
+                        background: timerState === "idle" ? "#E8E0D4" : "#F5D0A9",
+                        borderTop: `3px solid ${timerState === "idle" ? "#D8CEB8" : "#FFE0C0"}`,
+                        cursor: timerState === "idle" ? "not-allowed" : "pointer",
+                        opacity: timerState === "idle" ? 0.45 : 1
+                      }}
+                      title="Çalışılan süreyi kaydet ve bitir"
+                    >
+                      {t.finish}
+                    </button>
+
+                    <button
+                      onClick={handleReset}
+                      className="px-3 py-3 rounded font-700 text-stone-700 pixel-btn"
+                      style={{ fontFamily: "'Press Start 2P'", fontSize: 8, background: "#E8DFD0", borderTop: "3px solid #F5ECE0" }}
+                    >
+                      {t.reset}
+                    </button>
+                  </div>
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
 
-          {/* HAFTALIK GRAFİK (BAR CHART) */}
-          <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5" }}>
-            <div className="px-4 py-2" style={{ background: "#4A3728" }}>
-              <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>📈 HAFTALIK GRAFİK</span>
-            </div>
-            <div className="p-4 h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <XAxis dataKey="day" fontSize={10} tick={{ fill: '#4A3728' }} />
-                  <Tooltip contentStyle={{ background: '#FDFAF5', border: '2px solid #4A3728', borderRadius: '4px', fontSize: '12px' }} />
-                  <Bar dataKey="minutes" fill="#6B9E78" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5" }}>
-            <div className="px-4 py-2 flex items-center justify-between" style={{ background: "#4A3728" }}>
-              <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>📋 GEÇMİŞ</span>
-              <span className="text-xs font-700 text-amber-300">{studySessions.length}</span>
-            </div>
-            <div className="p-3 flex flex-col gap-2 max-h-60 overflow-y-auto">
-              {studySessions.length === 0 ? (
-                <div className="text-center py-6">
-                  <div className="text-2xl mb-2">📭</div>
-                  <div className="text-xs text-stone-400 font-600">Henüz kayıtlı seansın yok — çalışmaya başla!</div>
+            <div className="flex flex-col gap-5">
+              <div className="rounded-lg overflow-hidden flex flex-col" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5", height: "300px" }}>
+                <div className="px-4 py-2" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.roomChat}</span>
                 </div>
-              ) : (
-                studySessions.map((s, i) => <SessionCard key={s.id || i} session={s} index={i} />)
-              )}
+                <div className="p-3 flex-1 overflow-y-auto flex flex-col gap-2 text-xs">
+                  {messages.length === 0 ? (
+                    <div className="text-center text-stone-400 my-auto">{t.noMessages}</div>
+                  ) : (
+                    messages.map((m, i) => (
+                      <div key={m.id || i} className="p-2 rounded bg-[#F5F0E8]" style={{ border: "1px solid #C4B8A8" }}>
+                        <span className="font-bold text-amber-800">{m.username}: </span>
+                        <span className="text-stone-700">{m.message}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <form onSubmit={handleSendMessage} className="p-2 border-t-2 border-[#C4B8A8] flex gap-2 bg-[#F2EDE3]">
+                  <input 
+                    type="text"
+                    placeholder={isActive ? t.focusChatWarning : t.chatPlaceholder}
+                    maxLength={30}
+                    value={chatInput}
+                    disabled={isActive}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    className={`flex-1 px-2 py-1.5 text-xs bg-white outline-none rounded ${isActive ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    style={{ border: "1px solid #C4B8A8" }}
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={isActive}
+                    className={`px-3 py-1 text-white text-xs font-bold rounded ${isActive ? 'bg-stone-400 cursor-not-allowed' : 'bg-[#6B9E78]'}`} 
+                    style={{ fontFamily: "'Press Start 2P'", fontSize: "7px" }}
+                  >
+                    {t.send}
+                  </button>
+                </form>
+              </div>
+
+              <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5" }}>
+                <div className="px-4 py-2" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.myStats}</span>
+                </div>
+                <div className="p-4 grid grid-cols-2 gap-3">
+                  {[
+                    { label: t.sessionsCount, value: completedSessions, icon: "📚", bg: "#E8F5EC", bd: "#81C784", tx: "#3D7A50" },
+                    { label: t.focusMinutes, value: totalMinToday, icon: "⏰", bg: "#FFF8E8", bd: "#FFD080", tx: "#7A6020" },
+                    { label: t.streakDays, value: `${streak}d`, icon: "🔥", bg: "#FFF3EC", bd: "#FFB080", tx: "#804030" },
+                    { label: "Developed by Emine Bolat",  icon: "⭐", bg: "#F5F0FF", bd: "#C0A0E0", tx: "#604888" },
+                  ].map(({ label, value, icon, bg, bd, tx }) => (
+                    <div key={label} className="rounded-lg p-3 text-center" style={{ background: bg, border: `2px solid ${bd}` }}>
+                      <div className="text-xl mb-1">{icon}</div>
+                      <div className="text-xl font-800 leading-none" style={{ color: tx }}>{value}</div>
+                      <div className="text-xs font-600 mt-0.5" style={{ color: tx, opacity: 0.7 }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* HAFTALIK GRAFİK (Yeni Haftada Temiz Sıfırlanan & Dakika Etiketli) */}
+              <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5" }}>
+                <div className="px-4 py-2" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.weeklyChart}</span>
+                </div>
+                <div className="p-4 h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 18, right: 5, left: 5, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E3D8C8" />
+                      <XAxis dataKey="day" fontSize={9} tickLine={false} axisLine={{ stroke: '#C4B8A8' }} tick={{ fill: '#4A3728', fontFamily: "'Press Start 2P'" }} />
+                      <Tooltip contentStyle={{ background: '#FDFAF5', border: '2px solid #4A3728', borderRadius: '4px', fontSize: '12px' }} />
+                      <Bar dataKey="minutes" fill="#6B9E78" radius={[2, 2, 0, 0]} label={<CustomBarLabel />} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5" }}>
+                <div className="px-4 py-2 flex items-center justify-between" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.history}</span>
+                  <span className="text-xs font-700 text-amber-300">{studySessions.length}</span>
+                </div>
+                <div className="p-3 flex flex-col gap-2 max-h-60 overflow-y-auto">
+                  {studySessions.length === 0 ? (
+                    <div className="text-center py-6">
+                      <div className="text-2xl mb-2">📭</div>
+                      <div className="text-xs text-stone-400 font-600">{t.noSessions}</div>
+                    </div>
+                  ) : (
+                    studySessions.map((s, i) => <SessionCard key={s.id || i} session={s} index={i} />)
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <StatsView studySessions={studySessions} t={t} lang={lang} />
+        )}
       </main>
 
       <style>{`
@@ -1283,7 +1616,7 @@ export default function App() {
           zIndex: 50
         }}
       >
-        ÇIKIŞ
+        {t.logout}
       </button>
     </div>
   )
