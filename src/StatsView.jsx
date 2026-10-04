@@ -8,7 +8,6 @@ import {
   CartesianGrid 
 } from "recharts";
 
-// Sütun tepesinde '2dk' / '2min' etiketini dinamik çizer
 const CustomBarLabel = ({ x, y, width, value, unit }) => {
   if (!value || value <= 0) return null;
 
@@ -18,7 +17,7 @@ const CustomBarLabel = ({ x, y, width, value, unit }) => {
       y={y - 8}
       fill="#4A3728"
       textAnchor="middle"
-      fontSize={8}
+      fontSize={7}
       fontFamily="'Press Start 2P', monospace"
     >
       {`${value}${unit}`}
@@ -27,15 +26,14 @@ const CustomBarLabel = ({ x, y, width, value, unit }) => {
 };
 
 export default function StatsView({ studySessions = [], t, lang = "tr" }) {
-  const [weekOffset, setWeekOffset] = useState(0); // 0: Bu hafta / This week, -1: Geçen hafta / Last week
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const locale = lang === "tr" ? "tr-TR" : "en-US";
   const unitText = t?.minText || (lang === "tr" ? "dk" : "min");
 
-  // Seçili haftanın Pazartesi (00:00:00) ve Pazar (23:59:59) sınırları
   const weekBounds = useMemo(() => {
     const now = new Date();
-    const day = now.getDay(); // 0: Paz, 1: Pzt...
+    const day = now.getDay();
     const diffToMonday = day === 0 ? -6 : 1 - day;
 
     const monday = new Date(now);
@@ -56,7 +54,6 @@ export default function StatsView({ studySessions = [], t, lang = "tr" }) {
     };
   }, [weekOffset, locale]);
 
-  // Gün etiketlerini dile göre dinamik al (PZT/MON, SAL/TUE ...)
   const labels = useMemo(() => {
     return t?.daysShort || (lang === "tr" 
       ? ["PZT", "SAL", "ÇAR", "PER", "CUM", "CTS", "PAZ"]
@@ -64,7 +61,6 @@ export default function StatsView({ studySessions = [], t, lang = "tr" }) {
     );
   }, [t, lang]);
 
-  // Seansları seçili haftanın günlerine dağıt
   const chartData = useMemo(() => {
     return labels.map((day, i) => {
       const targetDayStart = new Date(weekBounds.mondayDate);
@@ -107,70 +103,70 @@ export default function StatsView({ studySessions = [], t, lang = "tr" }) {
   }, [chartData]);
 
   return (
-    <div className="w-full flex flex-col gap-6 select-none animate-fadeIn">
+    <div className="w-full flex flex-col gap-5 sm:gap-6 select-none animate-fadeIn pb-10">
       {/* BAŞLIK */}
       <div>
-        <p className="text-[9px] text-[#4A6E54] font-bold tracking-wider mb-2" style={{ fontFamily: "'Press Start 2P'" }}>
+        <p className="text-[8px] sm:text-[9px] text-[#4A6E54] font-bold tracking-wider mb-1.5" style={{ fontFamily: "'Press Start 2P'" }}>
           {t?.playerReport || "OYUNCU RAPORU"}
         </p>
-        <h2 className="text-2xl font-bold text-[#3D3028]" style={{ fontFamily: "'Press Start 2P'" }}>
+        <h2 className="text-xl sm:text-2xl font-bold text-[#3D3028]" style={{ fontFamily: "'Press Start 2P'" }}>
           {t?.focusJourney || "Odak yolculuğun"}
         </h2>
-        <p className="text-sm font-semibold text-stone-500 mt-1">
+        <p className="text-xs sm:text-sm font-semibold text-stone-500 mt-1">
           {t?.journeySub || "Küçük adımlar, büyük bir serüvene dönüşür."}
         </p>
       </div>
 
       {/* 4 ÖZET KART */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* BU HAFTA / SEÇİLİ HAFTA */}
-        <div className="bg-[#FDFAF5] p-5 rounded border-2 border-[#4A3728] shadow-[3px_3px_0_#2a1f14]">
-          <span className="text-[7px] text-[#4A3728] font-bold block mb-3" style={{ fontFamily: "'Press Start 2P'" }}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* BU HAFTA */}
+        <div className="bg-[#FDFAF5] p-3.5 sm:p-5 rounded border-2 border-[#4A3728] shadow-[3px_3px_0_#2a1f14]">
+          <span className="text-[6px] sm:text-[7px] text-[#4A3728] font-bold block mb-2 sm:mb-3" style={{ fontFamily: "'Press Start 2P'" }}>
             {weekOffset === 0 ? (t?.thisWeek || "BU HAFTA") : (lang === "tr" ? "SEÇİLİ HAFTA" : "SELECTED WEEK")}
           </span>
-          <div className="text-2xl font-bold text-[#2A5A40]" style={{ fontFamily: "'VT323'", fontSize: "38px", lineHeight: "1" }}>
+          <div className="font-bold text-[#2A5A40] text-3xl sm:text-4xl" style={{ fontFamily: "'VT323'", lineHeight: "1" }}>
             {hours}h {mins}m
           </div>
-          <span className="text-[11px] text-stone-400 font-semibold mt-2 block">
+          <span className="text-[10px] sm:text-[11px] text-stone-400 font-semibold mt-1.5 sm:mt-2 block truncate">
             {weekOffset === 0 ? (t?.currentWeekLabel || "BU HAFTA") : weekBounds.label}
           </span>
         </div>
 
         {/* ODAK SERİSİ */}
-        <div className="bg-[#FDFAF5] p-5 rounded border-2 border-[#4A3728] shadow-[3px_3px_0_#2a1f14]">
-          <span className="text-[7px] text-[#4A3728] font-bold block mb-3" style={{ fontFamily: "'Press Start 2P'" }}>
+        <div className="bg-[#FDFAF5] p-3.5 sm:p-5 rounded border-2 border-[#4A3728] shadow-[3px_3px_0_#2a1f14]">
+          <span className="text-[6px] sm:text-[7px] text-[#4A3728] font-bold block mb-2 sm:mb-3" style={{ fontFamily: "'Press Start 2P'" }}>
             {t?.focusStreakCard || "ODAK SERİSİ"}
           </span>
-          <div className="text-2xl font-bold text-[#3D3028]" style={{ fontFamily: "'VT323'", fontSize: "38px", lineHeight: "1" }}>
+          <div className="font-bold text-[#3D3028] text-3xl sm:text-4xl" style={{ fontFamily: "'VT323'", lineHeight: "1" }}>
             {chartData.filter(d => d.minutes > 0).length} {lang === "tr" ? "gün" : "days"}
           </div>
-          <span className="text-[11px] text-stone-400 font-semibold mt-2 block">
+          <span className="text-[10px] sm:text-[11px] text-stone-400 font-semibold mt-1.5 sm:mt-2 block truncate">
             {t?.activeDays || "Aktif çalışma günü"}
           </span>
         </div>
 
         {/* TAMAMLANAN */}
-        <div className="bg-[#FDFAF5] p-5 rounded border-2 border-[#4A3728] shadow-[3px_3px_0_#2a1f14]">
-          <span className="text-[7px] text-[#4A3728] font-bold block mb-3" style={{ fontFamily: "'Press Start 2P'" }}>
+        <div className="bg-[#FDFAF5] p-3.5 sm:p-5 rounded border-2 border-[#4A3728] shadow-[3px_3px_0_#2a1f14]">
+          <span className="text-[6px] sm:text-[7px] text-[#4A3728] font-bold block mb-2 sm:mb-3" style={{ fontFamily: "'Press Start 2P'" }}>
             {t?.completedCard || "TAMAMLANAN"}
           </span>
-          <div className="text-2xl font-bold text-[#3D3028]" style={{ fontFamily: "'VT323'", fontSize: "38px", lineHeight: "1" }}>
+          <div className="font-bold text-[#3D3028] text-3xl sm:text-4xl" style={{ fontFamily: "'VT323'", lineHeight: "1" }}>
             {studySessions.length} {t?.sessionText || (lang === "tr" ? "seans" : "sessions")}
           </div>
-          <span className="text-[11px] text-stone-400 font-semibold mt-2 block">
+          <span className="text-[10px] sm:text-[11px] text-stone-400 font-semibold mt-1.5 sm:mt-2 block truncate">
             {t?.registeredSessions || "Kayıtlı oturum"}
           </span>
         </div>
 
         {/* EN İYİ GÜN */}
-        <div className="bg-[#FDFAF5] p-5 rounded border-2 border-[#4A3728] shadow-[3px_3px_0_#2a1f14]">
-          <span className="text-[7px] text-[#4A3728] font-bold block mb-3" style={{ fontFamily: "'Press Start 2P'" }}>
+        <div className="bg-[#FDFAF5] p-3.5 sm:p-5 rounded border-2 border-[#4A3728] shadow-[3px_3px_0_#2a1f14]">
+          <span className="text-[6px] sm:text-[7px] text-[#4A3728] font-bold block mb-2 sm:mb-3" style={{ fontFamily: "'Press Start 2P'" }}>
             {t?.bestDayCard || "EN İYİ GÜN"}
           </span>
-          <div className="text-2xl font-bold text-[#2A5A40]" style={{ fontFamily: "'VT323'", fontSize: "38px", lineHeight: "1" }}>
+          <div className="font-bold text-[#2A5A40] text-3xl sm:text-4xl" style={{ fontFamily: "'VT323'", lineHeight: "1" }}>
             {maxDay.minutes > 0 ? `${maxDay.minutes}${unitText}` : "-"}
           </div>
-          <span className="text-[11px] text-stone-400 font-semibold mt-2 block">
+          <span className="text-[10px] sm:text-[11px] text-stone-400 font-semibold mt-1.5 sm:mt-2 block truncate">
             {maxDay.minutes > 0 ? maxDay.day : (t?.noData || "Veri yok")}
           </span>
         </div>
@@ -178,10 +174,10 @@ export default function StatsView({ studySessions = [], t, lang = "tr" }) {
 
       {/* HAFTALIK ODAK GRAFİĞİ & SAĞ LİSTE */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 bg-[#FDFAF5] p-5 rounded border-2 border-[#4A3728] shadow-[4px_4px_0_#2a1f14]">
-          <div className="flex items-center justify-between pb-3 mb-2 border-b border-stone-200">
+        <div className="lg:col-span-2 bg-[#FDFAF5] p-4 sm:p-5 rounded border-2 border-[#4A3728] shadow-[4px_4px_0_#2a1f14]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-2 border-b border-stone-200 gap-2.5">
             <div>
-              <span className="text-[8px] text-[#4A3728] font-bold block" style={{ fontFamily: "'Press Start 2P'" }}>
+              <span className="text-[7px] sm:text-[8px] text-[#4A3728] font-bold block" style={{ fontFamily: "'Press Start 2P'" }}>
                 {t?.weeklyFocus || "HAFTALIK ODAK"}
               </span>
               <span className="text-xs text-stone-400 font-bold">
@@ -189,38 +185,38 @@ export default function StatsView({ studySessions = [], t, lang = "tr" }) {
               </span>
             </div>
 
-            {/* Apple Sağlık Tarzı Hafta Gezgini */}
-            <div className="flex items-center gap-2">
+            {/* Hafta Gezgini */}
+            <div className="flex items-center justify-between sm:justify-end gap-1.5">
               <button
                 onClick={() => setWeekOffset(prev => prev - 1)}
-                className="px-2.5 py-1 text-xs font-bold bg-[#EDE5D5] hover:bg-[#E3D8C8] text-[#4A3728] rounded border border-[#C4B8A8] transition-all"
-                style={{ fontFamily: "'Press Start 2P'", fontSize: "7px" }}
+                className="px-2 py-1 text-xs font-bold bg-[#EDE5D5] hover:bg-[#E3D8C8] text-[#4A3728] rounded border border-[#C4B8A8] transition-all"
+                style={{ fontFamily: "'Press Start 2P'", fontSize: "6.5px" }}
               >
                 {t?.prevWeek || "◀ ÖNCEKİ"}
               </button>
 
-              <span className="text-[7px] text-[#4A3728] font-bold min-w-[70px] text-center" style={{ fontFamily: "'Press Start 2P'" }}>
+              <span className="text-[6.5px] text-[#4A3728] font-bold min-w-[65px] text-center" style={{ fontFamily: "'Press Start 2P'" }}>
                 {weekOffset === 0 ? (t?.currentWeekLabel || "BU HAFTA") : weekBounds.label}
               </span>
 
               <button
                 onClick={() => setWeekOffset(prev => Math.min(0, prev + 1))}
                 disabled={weekOffset === 0}
-                className={`px-2.5 py-1 text-xs font-bold rounded border transition-all ${
+                className={`px-2 py-1 text-xs font-bold rounded border transition-all ${
                   weekOffset === 0
                     ? "bg-stone-200 text-stone-400 border-stone-300 cursor-not-allowed"
                     : "bg-[#EDE5D5] hover:bg-[#E3D8C8] text-[#4A3728] border-[#C4B8A8]"
                 }`}
-                style={{ fontFamily: "'Press Start 2P'", fontSize: "7px" }}
+                style={{ fontFamily: "'Press Start 2P'", fontSize: "6.5px" }}
               >
                 {t?.nextWeek || "SONRAKİ ▶"}
               </button>
             </div>
           </div>
 
-          <div style={{ width: "100%", height: 260, minHeight: 260 }}>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={chartData} margin={{ top: 25, right: 10, left: 10, bottom: 5 }}>
+          <div className="w-full h-56 sm:h-64 pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 20, right: 0, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E3D8C8" />
                 <XAxis 
                   dataKey="day" 
@@ -235,7 +231,7 @@ export default function StatsView({ studySessions = [], t, lang = "tr" }) {
                     background: '#FDFAF5',
                     border: '2px solid #4A3728',
                     borderRadius: '4px',
-                    fontSize: '12px'
+                    fontSize: '11px'
                   }}
                 />
                 <Bar 
@@ -250,38 +246,38 @@ export default function StatsView({ studySessions = [], t, lang = "tr" }) {
         </div>
 
         {/* SAĞ: SON SEANSLAR LİSTESİ */}
-        <div className="bg-[#FDFAF5] p-5 rounded border-2 border-[#4A3728] shadow-[4px_4px_0_#2a1f14] flex flex-col">
+        <div className="bg-[#FDFAF5] p-4 sm:p-5 rounded border-2 border-[#4A3728] shadow-[4px_4px_0_#2a1f14] flex flex-col">
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-stone-200">
             <div>
-              <span className="text-[8px] text-[#4A3728] font-bold block" style={{ fontFamily: "'Press Start 2P'" }}>
+              <span className="text-[7px] sm:text-[8px] text-[#4A3728] font-bold block" style={{ fontFamily: "'Press Start 2P'" }}>
                 {t?.recentSessionsTitle || "SON SEANSLAR"}
               </span>
               <span className="text-xs text-stone-400 font-semibold">{t?.recentSessionsSub || "Odak geçmişin"}</span>
             </div>
-            <button className="text-[7px] text-[#4A3728] font-bold px-2 py-1 bg-[#EDE5D5] border border-[#C4B8A8] rounded" style={{ fontFamily: "'Press Start 2P'" }}>
+            <button className="text-[6.5px] text-[#4A3728] font-bold px-2 py-1 bg-[#EDE5D5] border border-[#C4B8A8] rounded" style={{ fontFamily: "'Press Start 2P'" }}>
               {t?.allBtn || "TÜMÜ"}
             </button>
           </div>
 
-          <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto max-h-[260px]">
+          <div className="flex-1 flex flex-col gap-2 overflow-y-auto max-h-[220px] sm:max-h-[260px]">
             {studySessions.length === 0 ? (
-              <div className="text-center text-xs text-stone-400 my-auto py-8">{t?.noSessions || "Henüz seans kaydı yok."}</div>
+              <div className="text-center text-xs text-stone-400 my-auto py-6">{t?.noSessions || "Henüz seans kaydı yok."}</div>
             ) : (
               studySessions.slice(0, 5).map((s, idx) => (
                 <div
                   key={s.id || idx}
-                  className="flex items-center justify-between p-2.5 bg-[#F7F2E7] border border-[#DDD3C1] rounded"
+                  className="flex items-center justify-between p-2 sm:p-2.5 bg-[#F7F2E7] border border-[#DDD3C1] rounded"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <span
-                      className="w-6 h-6 flex items-center justify-center bg-[#EDE5D5] text-[#4A3728] font-bold rounded text-[8px]"
+                      className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center bg-[#EDE5D5] text-[#4A3728] font-bold rounded text-[7px] sm:text-[8px] shrink-0"
                       style={{ fontFamily: "'Press Start 2P'" }}
                     >
                       {String(idx + 1).padStart(2, "0")}
                     </span>
                     <div className="truncate">
                       <div className="text-xs font-bold text-stone-800 truncate">{s.subject}</div>
-                      <div className="text-[10px] text-stone-400">
+                      <div className="text-[9px] sm:text-[10px] text-stone-400">
                         {new Date(s.completed_at || s.created_at).toLocaleDateString(locale, {
                           weekday: "short",
                           hour: "2-digit",
@@ -290,7 +286,7 @@ export default function StatsView({ studySessions = [], t, lang = "tr" }) {
                       </div>
                     </div>
                   </div>
-                  <div className="text-xs font-bold text-[#4A6E54] flex-shrink-0" style={{ fontFamily: "'Press Start 2P'", fontSize: "8px" }}>
+                  <div className="text-[7.5px] sm:text-[8px] font-bold text-[#4A6E54] shrink-0 ml-2" style={{ fontFamily: "'Press Start 2P'" }}>
                     {s.duration} {unitText.toUpperCase()}
                   </div>
                 </div>

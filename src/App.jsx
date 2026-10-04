@@ -4,7 +4,6 @@ import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, CartesianGrid } fro
 import confetti from "canvas-confetti";
 import StatsView from "./StatsView";
 
-// ─── Çoklu Dil Sözlüğü (TR / EN) ──────────────────────────────────────────────
 const translations = {
   tr: {
     roomTab: "ODA",
@@ -17,7 +16,7 @@ const translations = {
     emptyRoomStatus: "Boş Oda",
     streak: "Seri",
     today: "Bugün",
-    communityHall: "📚 TOPLULUK ÇALIŞMA SALONU",
+    communityHall: "📚 TOPLULUK SALONU",
     focusMode: "▶ ODAK MODU",
     studyingCount: "KİŞİ ÇALIŞIYOR",
     sit: "OTUR",
@@ -88,7 +87,7 @@ const translations = {
     emptyRoomStatus: "Empty Room",
     streak: "Streak",
     today: "Today",
-    communityHall: "📚 COMMUNITY STUDY HALL",
+    communityHall: "📚 COMMUNITY HALL",
     focusMode: "▶ FOCUS MODE",
     studyingCount: "STUDYING",
     sit: "SIT",
@@ -150,9 +149,7 @@ const translations = {
   }
 };
 
-// Sütun tepesinde dakikaları gösteren etiket
-const CustomBarLabel = (props) => {
-  const { x, y, width, value } = props;
+const CustomBarLabel = ({ x, y, width, value, unit = "dk" }) => {
   if (!value || value <= 0) return null;
 
   return (
@@ -161,15 +158,14 @@ const CustomBarLabel = (props) => {
       y={y - 6}
       fill="#4A3728"
       textAnchor="middle"
-      fontSize={7}
+      fontSize={6.5}
       fontFamily="'Press Start 2P', monospace"
     >
-      {`${value}dk`}
+      {`${value}${unit}`}
     </text>
   );
 };
 
-// ─── Boş Sandalye Bileşeni ────────────────────────────────────────────────────
 function EmptySeat({ cx, cy, onClick, disabled, label }) {
   const ts = cy - 18;
   return (
@@ -188,7 +184,6 @@ function EmptySeat({ cx, cy, onClick, disabled, label }) {
   )
 }
 
-// ─── Pixel Student Sprite (Mola ve Çalışma Baloncuğu) ─────────────────────────
 function Student({
   cx,
   cy,
@@ -290,7 +285,6 @@ function Student({
   )
 }
 
-// ─── 25 Sandalye Koordinatları ───────────────────────────────────────────────
 const ALL_SEATS = [
   { cx: 52, cy: 165, hair: "#1A1008", skin: "#F4D2A8", shirt: "#7EB8D4", item: "laptop" },
   { cx: 94, cy: 165, hair: "#6B3A1F", skin: "#C68642", shirt: "#E57373", item: "book", bookColor: "#81C784" },
@@ -319,7 +313,6 @@ const ALL_SEATS = [
   { cx: 483, cy: 250, hair: "#2D1B0E", skin: "#8D5524", shirt: "#FFAB40", item: "write" },
 ]
 
-// ─── Study Hall (Salon Bileşeni) ──────────────────────────────────────────────
 function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, timerMode, occupiedSeats, timerState, t }) {
   const [, setTick] = useState(0);
 
@@ -392,8 +385,8 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
   };
 
   return (
-    <div className="relative w-full overflow-hidden select-none" style={{ imageRendering: "pixelated" }}>
-      <svg viewBox="0 0 600 338" width="100%" height="100%" preserveAspectRatio="none" style={{ imageRendering: "pixelated", display: "block" }} xmlns="http://www.w3.org/2000/svg">
+    <div className="relative w-full aspect-[600/338] overflow-hidden select-none" style={{ imageRendering: "pixelated" }}>
+      <svg viewBox="0 0 600 338" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style={{ imageRendering: "pixelated", display: "block" }} xmlns="http://www.w3.org/2000/svg">
         <rect width="600" height="338" fill="#EDE5D5" />
         {Array.from({ length: 36 }).map((_, i) => (
           <rect key={i} x={0} y={i * 9} width="600" height="1" fill="#E3D8C8" opacity="0.55" />
@@ -603,7 +596,6 @@ function StudyHall({ isActive, userName, mySeatId, onSeatClick, minutes, secs, t
   )
 }
 
-// ─── Session Card ─────────────────────────────────────────────────────────────
 function SessionCard({ session, index }) {
   const palette = [
     { bg: "#E8F5E9", bd: "#81C784", dot: "#4CAF50" },
@@ -615,18 +607,17 @@ function SessionCard({ session, index }) {
   const c = palette[index % palette.length]
   const time = new Date(session.completed_at || session.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-transform hover:scale-[1.01]" style={{ backgroundColor: c.bg, border: `2px solid ${c.bd}` }}>
-      <div className="w-3 h-3 flex-shrink-0 rounded-sm" style={{ backgroundColor: c.dot }} />
+    <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-transform hover:scale-[1.01]" style={{ backgroundColor: c.bg, border: `2px solid ${c.bd}` }}>
+      <div className="w-2.5 h-2.5 shrink-0 rounded-sm" style={{ backgroundColor: c.dot }} />
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-700 text-stone-700 truncate">{session.subject}</div>
-        <div className="text-xs text-stone-500 font-500">{session.duration} min</div>
+        <div className="text-xs sm:text-sm font-bold text-stone-700 truncate">{session.subject}</div>
+        <div className="text-[10px] sm:text-xs text-stone-500 font-semibold">{session.duration} min</div>
       </div>
-      <div className="text-xs text-stone-400 font-600 flex-shrink-0">{time}</div>
+      <div className="text-[10px] sm:text-xs text-stone-400 font-semibold shrink-0">{time}</div>
     </div>
   )
 }
 
-// ─── Ana App Bileşeni ─────────────────────────────────────────────────────────
 export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem("app_lang") || "tr");
   const t = translations[lang] || translations.tr;
@@ -842,13 +833,11 @@ export default function App() {
     .filter((s) => new Date(s.created_at || s.completed_at) > new Date(Date.now() - 86400000))
     .reduce((acc, s) => acc + (Number(s.duration) || 0), 0);
 
-  // ─── ANA SAYFA HAFTALIK GRAFİK (Kesin Takvim Haftası Filtresi) ───────────────
   const chartData = useMemo(() => {
     const now = new Date();
-    const day = now.getDay(); // 0: Paz, 1: Pzt...
+    const day = now.getDay();
     const diffToMonday = day === 0 ? -6 : 1 - day;
 
-    // İçinde bulunulan haftanın Pazartesi (00:00:00)
     const monday = new Date(now);
     monday.setDate(now.getDate() + diffToMonday);
     monday.setHours(0, 0, 0, 0);
@@ -864,7 +853,6 @@ export default function App() {
       const start = targetDayStart.getTime();
       const end = targetDayEnd.getTime();
 
-      // Sadece bu haftanın o gününe ait seansları topla (Dünün Pazar günü buraya giremez!)
       const daySessions = studySessions.filter((s) => {
         const rawDate = s.completed_at || s.created_at;
         if (!rawDate) return false;
@@ -1165,17 +1153,17 @@ export default function App() {
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center scanline px-4" style={{ background: "#F2EDE3" }}>
-        <form onSubmit={handleLogin} className="pixel-border bg-[#FDFAF5] p-8 max-w-sm w-full flex flex-col items-center gap-6" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14" }}>
-          <h1 className="text-xl text-center" style={{ fontFamily: 'var(--font-pixel)', color: "#4A3728" }}>
+        <form onSubmit={handleLogin} className="pixel-border bg-[#FDFAF5] p-6 sm:p-8 max-w-sm w-full flex flex-col items-center gap-5 sm:gap-6" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14" }}>
+          <h1 className="text-lg sm:text-xl text-center" style={{ fontFamily: 'var(--font-pixel)', color: "#4A3728" }}>
             {t.joinRoom}
           </h1>
-          <p className="text-center text-sm font-600 whitespace-pre-line" style={{ color: "#7A6A58" }}>
+          <p className="text-center text-xs sm:text-sm font-semibold whitespace-pre-line" style={{ color: "#7A6A58" }}>
             {t.loginDesc}
           </p>
           <input 
             type="email" 
             placeholder="ornek@email.com" 
-            className="w-full p-3 bg-[#F5F0E8] outline-none focus:bg-white text-center font-bold"
+            className="w-full p-2.5 sm:p-3 bg-[#F5F0E8] outline-none focus:bg-white text-center font-bold text-sm"
             style={{ border: "2px solid #C4B8A8" }}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -1184,7 +1172,7 @@ export default function App() {
           <input
             type="password" 
             placeholder="******" 
-            className="w-full p-3 bg-[#F5F0E8] outline-none focus:bg-white text-center font-bold"
+            className="w-full p-2.5 sm:p-3 bg-[#F5F0E8] outline-none focus:bg-white text-center font-bold text-sm"
             style={{ border: "2px solid #C4B8A8" }}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -1194,7 +1182,7 @@ export default function App() {
             type="submit" 
             disabled={loading}
             className="pixel-btn w-full text-white py-3 font-bold" 
-            style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.8rem', background: "#6B9E78", borderTop: "3px solid #8BB898", opacity: loading ? 0.6 : 1 }}
+            style={{ fontFamily: 'var(--font-pixel)', fontSize: '0.75rem', background: "#6B9E78", borderTop: "3px solid #8BB898", opacity: loading ? 0.6 : 1 }}
           >
             {loading ? t.loggingIn : t.loginBtn}
           </button>
@@ -1204,57 +1192,59 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "#F2EDE3", fontFamily: "'Nunito', sans-serif" }}>
-      <div className="w-full bg-[#EDE5D5] border-b-2 border-[#D8CEB8] px-5 flex items-center justify-between">
-        <div className="flex gap-2">
+    <div className="min-h-screen pb-16" style={{ background: "#F2EDE3", fontFamily: "'Nunito', sans-serif" }}>
+      {/* ─── EN ÜST SEKME MENÜSÜ VE DİL DEĞİŞTİRİCİ ───────────────────────────── */}
+      <div className="w-full bg-[#EDE5D5] border-b-2 border-[#D8CEB8] px-3 sm:px-5 flex items-center justify-between">
+        <div className="flex gap-1.5 sm:gap-2">
           <button
             onClick={() => setActiveTab("room")}
-            className={`px-5 py-2.5 font-bold transition-all text-xs ${
+            className={`px-3 sm:px-5 py-2 sm:py-2.5 font-bold transition-all ${
               activeTab === "room"
                 ? "bg-[#FDFAF5] text-[#2A5A40] border-t-4 border-[#2A5A40]"
                 : "text-stone-600 hover:text-stone-900"
             }`}
-            style={{ fontFamily: "'Press Start 2P'", fontSize: "8px" }}
+            style={{ fontFamily: "'Press Start 2P'", fontSize: "7px" }}
           >
             {t.roomTab}
           </button>
           <button
             onClick={() => setActiveTab("stats")}
-            className={`px-5 py-2.5 font-bold transition-all text-xs ${
+            className={`px-3 sm:px-5 py-2 sm:py-2.5 font-bold transition-all ${
               activeTab === "stats"
                 ? "bg-[#FDFAF5] text-[#2A5A40] border-t-4 border-[#2A5A40]"
                 : "text-stone-600 hover:text-stone-900"
             }`}
-            style={{ fontFamily: "'Press Start 2P'", fontSize: "8px" }}
+            style={{ fontFamily: "'Press Start 2P'", fontSize: "7px" }}
           >
             {t.statsTab}
           </button>
         </div>
 
-        <div className="flex items-center gap-4 py-2">
+        <div className="flex items-center gap-2 sm:gap-4 py-2">
           <button
             onClick={toggleLanguage}
-            className="px-2.5 py-1 text-[8px] font-bold rounded bg-[#FDFAF5] border-2 border-[#4A3728] text-[#4A3728] hover:bg-[#F2EDE3] transition-all"
+            className="px-2 py-1 text-[7px] font-bold rounded bg-[#FDFAF5] border-2 border-[#4A3728] text-[#4A3728] hover:bg-[#F2EDE3] transition-all"
             style={{ fontFamily: "'Press Start 2P'" }}
             title="Dili Değiştir / Change Language"
           >
             🌐 {lang.toUpperCase()}
           </button>
 
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#81C784]"></span>
-            <span className="text-[8px] font-bold text-stone-600" style={{ fontFamily: "'Press Start 2P'" }}>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#81C784]"></span>
+            <span className="text-[7px] font-bold text-stone-600 truncate max-w-[100px] sm:max-w-none" style={{ fontFamily: "'Press Start 2P'" }}>
               {t.currentLocation}
             </span>
           </div>
         </div>
       </div>
 
+      {/* HEADER BİLGİ ŞERİDİ */}
       <header className="w-full border-b-4 border-stone-800" style={{ background: "#FDFAF5" }}>
-        <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 w-10 h-10" style={{ imageRendering: "pixelated" }}>
-              <svg viewBox="0 0 32 32" width="40" height="40">
+        <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between gap-3 sm:gap-4 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <div className="shrink-0 w-8 h-8 sm:w-10 sm:h-10" style={{ imageRendering: "pixelated" }}>
+              <svg viewBox="0 0 32 32" width="100%" height="100%">
                 <rect width="32" height="32" fill="#8BAD6E" />
                 <rect x="8" y="10" width="16" height="12" fill="#FDFAF5" />
                 <rect x="8" y="10" width="2" height="12" fill="#C4956A" />
@@ -1266,54 +1256,56 @@ export default function App() {
               </svg>
             </div>
             <div>
-              <h1 style={{ fontFamily: "'Press Start 2P'", fontSize: 13, color: "#3D3028", lineHeight: 1 }}>StudyQuest</h1>
-              <p className="text-stone-500 text-xs font-600 mt-1">{t.welcome}, {userName}!</p>
+              <h1 style={{ fontFamily: "'Press Start 2P'", fontSize: 11, color: "#3D3028", lineHeight: 1 }}>StudyQuest</h1>
+              <p className="text-stone-500 text-[11px] font-semibold mt-1">{t.welcome}, {userName}!</p>
             </div>
           </div>
           
           <div className="flex-1 max-w-lg hidden lg:block text-center px-4">
-            <p className="text-xs font-700 text-stone-700 italic">
+            <p className="text-xs font-semibold text-stone-700 italic">
               {t.ataturkQuote}
             </p>
-            <p className="text-[10px] font-800 text-amber-800 mt-0.5">
+            <p className="text-[10px] font-bold text-amber-800 mt-0.5">
               {t.ataturkAuthor}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border-2" style={{ background: "#F0FBF4", borderColor: occupancyColor }}>
+          <div className="flex items-center gap-1.5 sm:gap-2 ml-auto sm:ml-0">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border-2" style={{ background: "#F0FBF4", borderColor: occupancyColor }}>
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: occupancyColor, boxShadow: `0 0 5px ${occupancyColor}` }} />
               <div>
-                <div className="text-xs font-700 leading-none" style={{ color: occupancyColor }}>{occupancyLabel}</div>
-                <div className="text-xs text-stone-500 font-600">{totalOccupancy}/25</div>
+                <div className="text-[10px] font-bold leading-none" style={{ color: occupancyColor }}>{occupancyLabel}</div>
+                <div className="text-[10px] text-stone-500 font-semibold">{totalOccupancy}/25</div>
               </div>
             </div>
-            <div className="text-center px-3 py-1.5 rounded-lg bg-amber-50 border-2 border-amber-300">
-              <div className="text-xs text-amber-600 font-700">🔥 {t.streak}</div>
-              <div className="text-lg font-800 text-amber-700 leading-none">{streak}</div>
+            <div className="text-center px-2.5 py-1 rounded-lg bg-amber-50 border-2 border-amber-300">
+              <div className="text-[10px] text-amber-600 font-bold">🔥 {t.streak}</div>
+              <div className="text-sm sm:text-base font-extrabold text-amber-700 leading-none">{streak}</div>
             </div>
-            <div className="text-center px-3 py-1.5 rounded-lg border-2 border-green-300" style={{ backgroundColor: "#EEF5E8" }}>
-              <div className="text-xs text-green-700 font-700">{t.today}</div>
-              <div className="text-lg font-800 text-green-800 leading-none">{totalMinToday}m</div>
+            <div className="text-center px-2.5 py-1 rounded-lg border-2 border-green-300" style={{ backgroundColor: "#EEF5E8" }}>
+              <div className="text-[10px] text-green-700 font-bold">{t.today}</div>
+              <div className="text-sm sm:text-base font-extrabold text-green-800 leading-none">{totalMinToday}m</div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      {/* ─── ANA ALAN: ODA VEYA İSTATİSTİKLER ───────────────────────────────────── */}
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {activeTab === "room" ? (
-          <div className="grid gap-5" style={{ gridTemplateColumns: "minmax(0,1fr) 280px" }}>
-            <div className="flex flex-col gap-5 min-w-0">
-              <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14" }}>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 sm:gap-5">
+            <div className="flex flex-col gap-4 sm:gap-5 min-w-0">
+              {/* ODA GÖRSELİ */}
+              <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14" }}>
                 <div className="px-3 py-2 flex items-center justify-between" style={{ background: "#4A3728" }}>
-                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.communityHall}</span>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 7, color: "#F5E6C8" }}>{t.communityHall}</span>
                   <div className="flex items-center gap-2">
                     {isActive && (
-                      <span style={{ fontFamily: "'Press Start 2P'", fontSize: 7, color: "#7EC8A4", animation: "float 2s ease-in-out infinite" }}>{t.focusMode}</span>
+                      <span style={{ fontFamily: "'Press Start 2P'", fontSize: 6.5, color: "#7EC8A4", animation: "float 2s ease-in-out infinite" }}>{t.focusMode}</span>
                     )}
                     <div className="flex gap-1">
                       {["#FF6B6B", "#FFD93D", "#6BCB77"].map((c) => (
-                        <div key={c} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
+                        <div key={c} className="w-2 h-2 rounded-full" style={{ backgroundColor: c }} />
                       ))}
                     </div>
                   </div>
@@ -1332,12 +1324,13 @@ export default function App() {
                 />
               </div>
 
-              <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "6px 6px 0 #2a1f14", background: "#FDFAF5" }}>
-                <div className="px-4 py-2" style={{ background: "#4A3728" }}>
-                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.pomodoroTimer}</span>
+              {/* POMODORO SAYACI */}
+              <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5" }}>
+                <div className="px-3.5 py-2" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 7.5, color: "#F5E6C8" }}>{t.pomodoroTimer}</span>
                 </div>
-                <div className="p-5">
-                  <div className="flex gap-2 mb-5">
+                <div className="p-4 sm:p-5">
+                  <div className="flex gap-2 mb-4">
                     {(["study", "break"]).map((mode) => (
                       <button
                         key={mode}
@@ -1347,9 +1340,9 @@ export default function App() {
                             setSecondsLeft((mode === "study" ? Number(studyDuration) || 25 : Number(breakDuration) || 5) * 60)
                           }
                         }}
-                        className="flex-1 py-2.5 rounded transition-all font-700"
+                        className="flex-1 py-2 sm:py-2.5 rounded transition-all font-bold"
                         style={{
-                          fontFamily: "'Press Start 2P'", fontSize: 8,
+                          fontFamily: "'Press Start 2P'", fontSize: 7,
                           background: timerMode === mode ? (mode === "study" ? "#6B9E78" : "#7EA8C4") : "#E8E0D4",
                           color: timerMode === mode ? "#fff" : "#7A6A58",
                           border: `3px solid ${timerMode === mode ? "#4A6E54" : "#C4B8A8"}`,
@@ -1362,34 +1355,33 @@ export default function App() {
                     ))}
                   </div>
 
-                  <div className="relative flex items-center justify-center py-7 mb-5 rounded-lg scanline overflow-hidden" style={{ background: "#1A2822", border: "4px solid #0E1A14", boxShadow: "inset 0 0 30px rgba(0,0,0,0.5)" }}>
+                  {/* SAYAÇ GÖSTERGESİ */}
+                  <div className="relative flex items-center justify-center py-5 sm:py-7 mb-4 rounded-lg scanline overflow-hidden" style={{ background: "#1A2822", border: "4px solid #0E1A14", boxShadow: "inset 0 0 30px rgba(0,0,0,0.5)" }}>
                     <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at center, ${timerMode === "study" ? "rgba(107,158,120,0.15)" : "rgba(126,168,196,0.15)"} 0%, transparent 70%)` }} />
-                    <div className="relative z-10 tabular-nums" style={{ fontFamily: "'VT323'", fontSize: 96, lineHeight: 1, color: timerMode === "study" ? "#7EC8A4" : "#7EB8D4", textShadow: `0 0 20px ${timerMode === "study" ? "rgba(126,200,164,0.6)" : "rgba(126,184,212,0.6)"}`, letterSpacing: "0.04em" }}>
+                    <div className="relative z-10 tabular-nums text-6xl sm:text-8xl tracking-wider" style={{ fontFamily: "'VT323'", lineHeight: 1, color: timerMode === "study" ? "#7EC8A4" : "#7EB8D4", textShadow: `0 0 20px ${timerMode === "study" ? "rgba(126,200,164,0.6)" : "rgba(126,184,212,0.6)"}` }}>
                       {pad(minutes)}<span className={isActive ? "blink" : ""}>:</span>{pad(secs)}
                     </div>
                   </div>
 
-                  <div className="mb-4">
-                    <label className="block mb-1.5 text-stone-600" style={{ fontFamily: "'Press Start 2P'", fontSize: 7 }}>{t.whatStudying}</label>
+                  <div className="mb-3.5">
+                    <label className="block mb-1 text-stone-600" style={{ fontFamily: "'Press Start 2P'", fontSize: 6.5 }}>{t.whatStudying}</label>
                     <input
                       type="text"
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
                       placeholder={t.studyingPlaceholder}
-                      className="w-full px-3 py-2.5 text-sm font-600 text-stone-700 rounded outline-none transition-all"
+                      className="w-full px-3 py-2 text-xs sm:text-sm font-semibold text-stone-700 rounded outline-none transition-all"
                       style={{ background: "#F5F0E8", border: "2px solid #C4B8A8" }}
-                      onFocus={(e) => (e.target.style.borderColor = "#8BAD6E")}
-                      onBlur={(e) => (e.target.style.borderColor = "#C4B8A8")}
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 mb-5">
+                  <div className="grid grid-cols-2 gap-2.5 mb-4">
                     {[
                       { label: t.studyMin, value: studyDuration, setter: setStudyDuration, min: 1, max: 1440 },
                       { label: t.breakMin, value: breakDuration, setter: setBreakDuration, min: 1, max: 1440 },
                     ].map(({ label, value, setter, min, max }) => (
                       <div key={label}>
-                        <label className="block mb-1 text-stone-500" style={{ fontFamily: "'Press Start 2P'", fontSize: 7 }}>{label}</label>
+                        <label className="block mb-1 text-stone-500 truncate" style={{ fontFamily: "'Press Start 2P'", fontSize: 6 }}>{label}</label>
                         <div className="flex items-center overflow-hidden" style={{ border: "2px solid #C4B8A8", borderRadius: 6, background: "#F5F0E8" }}>
                           <button 
                             onClick={() => {
@@ -1397,7 +1389,7 @@ export default function App() {
                               setter(Math.max(min, cur - 1));
                             }} 
                             disabled={timerState !== "idle"} 
-                            className="w-9 h-9 flex items-center justify-center text-lg font-800 text-stone-600 hover:bg-stone-200 transition-colors flex-shrink-0"
+                            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-lg font-bold text-stone-600 hover:bg-stone-200 transition-colors shrink-0"
                           >
                             −
                           </button>
@@ -1423,8 +1415,8 @@ export default function App() {
                               }
                             }}
                             disabled={timerState !== "idle"} 
-                            className="flex-1 text-center font-800 text-stone-800 bg-transparent outline-none w-0" 
-                            style={{ fontFamily: "'VT323'", fontSize: 26 }} 
+                            className="flex-1 text-center font-bold text-stone-800 bg-transparent outline-none w-0" 
+                            style={{ fontFamily: "'VT323'", fontSize: 24 }} 
                           />
                           <button 
                             onClick={() => {
@@ -1432,7 +1424,7 @@ export default function App() {
                               setter(Math.min(max, cur + 1));
                             }} 
                             disabled={timerState !== "idle"} 
-                            className="w-9 h-9 flex items-center justify-center text-lg font-800 text-stone-600 hover:bg-stone-200 transition-colors flex-shrink-0"
+                            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-lg font-bold text-stone-600 hover:bg-stone-200 transition-colors shrink-0"
                           >
                             +
                           </button>
@@ -1444,10 +1436,10 @@ export default function App() {
                   <div className="flex gap-2">
                     <button
                       onClick={handleStart}
-                      className="flex-1 py-3 rounded font-700 text-white pixel-btn"
+                      className="flex-1 py-2.5 sm:py-3 rounded font-bold text-white pixel-btn"
                       style={{
                         fontFamily: "'Press Start 2P'",
-                        fontSize: 8,
+                        fontSize: 7.5,
                         background: timerState === "running" ? "#E07050" : modeColor,
                         borderTop: `3px solid ${timerState === "running" ? "#F08070" : timerMode === "study" ? "#8BB898" : "#9EC4D8"}`
                       }}
@@ -1458,10 +1450,10 @@ export default function App() {
                     <button
                       onClick={handleEarlyFinish}
                       disabled={timerState === "idle"}
-                      className="px-3 py-3 rounded font-700 text-stone-800 pixel-btn"
+                      className="px-2.5 sm:px-3 py-2.5 sm:py-3 rounded font-bold text-stone-800 pixel-btn"
                       style={{
                         fontFamily: "'Press Start 2P'",
-                        fontSize: 8,
+                        fontSize: 7.5,
                         background: timerState === "idle" ? "#E8E0D4" : "#F5D0A9",
                         borderTop: `3px solid ${timerState === "idle" ? "#D8CEB8" : "#FFE0C0"}`,
                         cursor: timerState === "idle" ? "not-allowed" : "pointer",
@@ -1474,8 +1466,8 @@ export default function App() {
 
                     <button
                       onClick={handleReset}
-                      className="px-3 py-3 rounded font-700 text-stone-700 pixel-btn"
-                      style={{ fontFamily: "'Press Start 2P'", fontSize: 8, background: "#E8DFD0", borderTop: "3px solid #F5ECE0" }}
+                      className="px-2.5 sm:px-3 py-2.5 sm:py-3 rounded font-bold text-stone-700 pixel-btn"
+                      style={{ fontFamily: "'Press Start 2P'", fontSize: 7.5, background: "#E8DFD0", borderTop: "3px solid #F5ECE0" }}
                     >
                       {t.reset}
                     </button>
@@ -1484,19 +1476,21 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-5">
-              <div className="rounded-lg overflow-hidden flex flex-col" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5", height: "300px" }}>
-                <div className="px-4 py-2" style={{ background: "#4A3728" }}>
-                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.roomChat}</span>
+            {/* SAĞ PANEL / MOBİLDE ALT PANEL */}
+            <div className="flex flex-col gap-4 sm:gap-5">
+              {/* ODA SOHBETİ */}
+              <div className="rounded-lg overflow-hidden flex flex-col" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5", height: "260px" }}>
+                <div className="px-3.5 py-2" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 7.5, color: "#F5E6C8" }}>{t.roomChat}</span>
                 </div>
                 <div className="p-3 flex-1 overflow-y-auto flex flex-col gap-2 text-xs">
                   {messages.length === 0 ? (
-                    <div className="text-center text-stone-400 my-auto">{t.noMessages}</div>
+                    <div className="text-center text-stone-400 my-auto text-[11px]">{t.noMessages}</div>
                   ) : (
                     messages.map((m, i) => (
-                      <div key={m.id || i} className="p-2 rounded bg-[#F5F0E8]" style={{ border: "1px solid #C4B8A8" }}>
-                        <span className="font-bold text-amber-800">{m.username}: </span>
-                        <span className="text-stone-700">{m.message}</span>
+                      <div key={m.id || i} className="p-1.5 sm:p-2 rounded bg-[#F5F0E8]" style={{ border: "1px solid #C4B8A8" }}>
+                        <span className="font-bold text-amber-800 text-[11px]">{m.username}: </span>
+                        <span className="text-stone-700 text-[11px]">{m.message}</span>
                       </div>
                     ))
                   )}
@@ -1509,67 +1503,69 @@ export default function App() {
                     value={chatInput}
                     disabled={isActive}
                     onChange={(e) => setChatInput(e.target.value)}
-                    className={`flex-1 px-2 py-1.5 text-xs bg-white outline-none rounded ${isActive ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex-1 px-2 py-1 text-xs bg-white outline-none rounded ${isActive ? 'opacity-50 cursor-not-allowed' : ''}`}
                     style={{ border: "1px solid #C4B8A8" }}
                   />
                   <button 
                     type="submit" 
                     disabled={isActive}
-                    className={`px-3 py-1 text-white text-xs font-bold rounded ${isActive ? 'bg-stone-400 cursor-not-allowed' : 'bg-[#6B9E78]'}`} 
-                    style={{ fontFamily: "'Press Start 2P'", fontSize: "7px" }}
+                    className={`px-2.5 py-1 text-white text-xs font-bold rounded ${isActive ? 'bg-stone-400 cursor-not-allowed' : 'bg-[#6B9E78]'}`} 
+                    style={{ fontFamily: "'Press Start 2P'", fontSize: "6.5px" }}
                   >
                     {t.send}
                   </button>
                 </form>
               </div>
 
+              {/* İSTATİSTİK KARTLARI */}
               <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5" }}>
-                <div className="px-4 py-2" style={{ background: "#4A3728" }}>
-                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.myStats}</span>
+                <div className="px-3.5 py-2" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 7.5, color: "#F5E6C8" }}>{t.myStats}</span>
                 </div>
-                <div className="p-4 grid grid-cols-2 gap-3">
+                <div className="p-3 sm:p-4 grid grid-cols-2 gap-2 sm:gap-3">
                   {[
                     { label: t.sessionsCount, value: completedSessions, icon: "📚", bg: "#E8F5EC", bd: "#81C784", tx: "#3D7A50" },
                     { label: t.focusMinutes, value: totalMinToday, icon: "⏰", bg: "#FFF8E8", bd: "#FFD080", tx: "#7A6020" },
                     { label: t.streakDays, value: `${streak}d`, icon: "🔥", bg: "#FFF3EC", bd: "#FFB080", tx: "#804030" },
                     { label: "Developed by Emine Bolat",  icon: "⭐", bg: "#F5F0FF", bd: "#C0A0E0", tx: "#604888" },
                   ].map(({ label, value, icon, bg, bd, tx }) => (
-                    <div key={label} className="rounded-lg p-3 text-center" style={{ background: bg, border: `2px solid ${bd}` }}>
-                      <div className="text-xl mb-1">{icon}</div>
-                      <div className="text-xl font-800 leading-none" style={{ color: tx }}>{value}</div>
-                      <div className="text-xs font-600 mt-0.5" style={{ color: tx, opacity: 0.7 }}>{label}</div>
+                    <div key={label} className="rounded-lg p-2.5 sm:p-3 text-center" style={{ background: bg, border: `2px solid ${bd}` }}>
+                      <div className="text-lg sm:text-xl mb-0.5">{icon}</div>
+                      <div className="text-lg sm:text-xl font-extrabold leading-none" style={{ color: tx }}>{value}</div>
+                      <div className="text-[9.5px] font-semibold mt-0.5 truncate" style={{ color: tx, opacity: 0.75 }}>{label}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* HAFTALIK GRAFİK (Yeni Haftada Temiz Sıfırlanan & Dakika Etiketli) */}
+              {/* HAFTALIK GRAFİK */}
               <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5" }}>
-                <div className="px-4 py-2" style={{ background: "#4A3728" }}>
-                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.weeklyChart}</span>
+                <div className="px-3.5 py-2" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 7.5, color: "#F5E6C8" }}>{t.weeklyChart}</span>
                 </div>
-                <div className="p-4 h-48">
+                <div className="p-3 sm:p-4 h-44 sm:h-48">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 18, right: 5, left: 5, bottom: 0 }}>
+                    <BarChart data={chartData} margin={{ top: 16, right: 0, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E3D8C8" />
-                      <XAxis dataKey="day" fontSize={9} tickLine={false} axisLine={{ stroke: '#C4B8A8' }} tick={{ fill: '#4A3728', fontFamily: "'Press Start 2P'" }} />
-                      <Tooltip contentStyle={{ background: '#FDFAF5', border: '2px solid #4A3728', borderRadius: '4px', fontSize: '12px' }} />
-                      <Bar dataKey="minutes" fill="#6B9E78" radius={[2, 2, 0, 0]} label={<CustomBarLabel />} />
+                      <XAxis dataKey="day" fontSize={8} tickLine={false} axisLine={{ stroke: '#C4B8A8' }} tick={{ fill: '#4A3728', fontFamily: "'Press Start 2P'" }} />
+                      <Tooltip contentStyle={{ background: '#FDFAF5', border: '2px solid #4A3728', borderRadius: '4px', fontSize: '11px' }} />
+                      <Bar dataKey="minutes" fill="#6B9E78" radius={[2, 2, 0, 0]} label={<CustomBarLabel unit={t.minText} />} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
+              {/* GEÇMİŞ LİSTESİ */}
               <div className="rounded-lg overflow-hidden" style={{ border: "4px solid #4A3728", boxShadow: "4px 4px 0 #2a1f14", background: "#FDFAF5" }}>
-                <div className="px-4 py-2 flex items-center justify-between" style={{ background: "#4A3728" }}>
-                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 8, color: "#F5E6C8" }}>{t.history}</span>
-                  <span className="text-xs font-700 text-amber-300">{studySessions.length}</span>
+                <div className="px-3.5 py-2 flex items-center justify-between" style={{ background: "#4A3728" }}>
+                  <span style={{ fontFamily: "'Press Start 2P'", fontSize: 7.5, color: "#F5E6C8" }}>{t.history}</span>
+                  <span className="text-[11px] font-bold text-amber-300">{studySessions.length}</span>
                 </div>
-                <div className="p-3 flex flex-col gap-2 max-h-60 overflow-y-auto">
+                <div className="p-2.5 sm:p-3 flex flex-col gap-2 max-h-52 sm:max-h-60 overflow-y-auto">
                   {studySessions.length === 0 ? (
-                    <div className="text-center py-6">
-                      <div className="text-2xl mb-2">📭</div>
-                      <div className="text-xs text-stone-400 font-600">{t.noSessions}</div>
+                    <div className="text-center py-5">
+                      <div className="text-xl mb-1">📭</div>
+                      <div className="text-[11px] text-stone-400 font-semibold">{t.noSessions}</div>
                     </div>
                   ) : (
                     studySessions.map((s, i) => <SessionCard key={s.id || i} session={s} index={i} />)
@@ -1583,10 +1579,24 @@ export default function App() {
         )}
       </main>
 
+      {/* MOBİL VE MASAÜSTÜ UYUMLU ÇIKIŞ BUTONU */}
+      <button
+        onClick={handleLogout}
+        className="fixed bottom-3 right-3 sm:bottom-5 sm:right-5 px-3 py-2 sm:px-4 sm:py-3 rounded"
+        style={{
+          fontFamily: "'Press Start 2P'",
+          fontSize: 7,
+          background: "#E57373",
+          color: "#fff",
+          border: "2px solid #B54A4A",
+          boxShadow: "3px 3px 0 #7A3030",
+          zIndex: 50
+        }}
+      >
+        {t.logout}
+      </button>
+
       <style>{`
-        @media (max-width: 820px) {
-          main { grid-template-columns: 1fr !important; }
-        }
         .hover-seat:hover .seat-part {
           fill: #C09060 !important;
         }
@@ -1603,21 +1613,6 @@ export default function App() {
           animation: sitDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
       `}</style>
-      <button
-        onClick={handleLogout}
-        className="fixed bottom-5 right-5 px-4 py-3 rounded"
-        style={{
-          fontFamily: "'Press Start 2P'",
-          fontSize: 8,
-          background: "#E57373",
-          color: "#fff",
-          border: "3px solid #B54A4A",
-          boxShadow: "4px 4px 0 #7A3030",
-          zIndex: 50
-        }}
-      >
-        {t.logout}
-      </button>
     </div>
   )
 }
