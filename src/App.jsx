@@ -957,36 +957,36 @@ export default function App() {
     if (mySeatId === index) return;
 
     try {
+      // 1. Koltukta şu an başkası var mı kontrol et
       const checkSeat = await turso.execute({
-        sql: "SELECT username FROM online_users WHERE seat_id = ? LIMIT 1",
-        args: [Number(index)]
+        sql: "SELECT username FROM online_users WHERE seat_id = ? AND username != ? LIMIT 1",
+        args: [Number(index), String(userName)]
       });
 
-      if (checkSeat.rows.length > 0 && checkSeat.rows[0].username !== userName) {
+      if (checkSeat.rows && checkSeat.rows.length > 0) {
         alert(t.seatOccupied);
         return;
       }
 
+      // 2. Kullanıcının eski koltuk kaydını temizle
       await turso.execute({
         sql: "DELETE FROM online_users WHERE username = ?",
         args: [String(userName)]
       });
 
-      const uniqueId = typeof crypto !== "undefined" && crypto.randomUUID 
-        ? crypto.randomUUID 
-        : "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
-      
+      // 3. ID olarak doğrudan kullanıcı adını kullan (Böylece kullanıcı başına tek kayıt garantilenir)
+      const uniqueId = `user_${String(userName)}`;
       const nowIso = new Date().toISOString();
       const endIso = targetEndTime ? new Date(targetEndTime).toISOString() : "";
 
+      // 4. INSERT OR REPLACE kullanarak UNIQUE hatasını tamamen engelle
       await turso.execute({
-        sql: `INSERT INTO online_users (
+        sql: `INSERT OR REPLACE INTO online_users (
                 id, username, seat_id, timer_seconds, timer_running, 
                 timer_mode, target_end_time, updated_at
-              )
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
-          String(uniqueId),
+          uniqueId,
           String(userName),
           Number(index),
           Number(secondsLeft) || 0,
